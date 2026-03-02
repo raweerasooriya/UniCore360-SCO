@@ -51,24 +51,6 @@ UniCore 360 is a comprehensive campus management system developed for the IT3030
 - Axios
 - React Router
 
-## 📁 Project Structure
-UniCore360-SCO/
-├── unicore360-backend/ # Spring Boot application
-│ ├── src/
-│ │ ├── main/
-│ │ │ ├── java/
-│ │ │ └── resources/
-│ │ └── test/
-│ └── pom.xml
-└── unicore360-frontend/ # React application
-├── src/
-│ ├── components/
-│ ├── pages/
-│ ├── services/
-│ └── App.js
-└── package.json
-
-
 ## 🔧 Setup Instructions
 
 ### Prerequisites
