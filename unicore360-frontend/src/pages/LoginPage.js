@@ -9,6 +9,7 @@ import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import PersonIcon from '@mui/icons-material/Person';
 import BuildIcon from '@mui/icons-material/Build';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
+import GoogleIcon from '@mui/icons-material/Google';  // ← ADD THIS IMPORT
 import api from '../services/api';
 
 function LoginPage() {
@@ -20,10 +21,10 @@ function LoginPage() {
     const navigate = useNavigate();
 
     const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('username');
-    localStorage.removeItem('role');  // ✅ MAKE SURE THIS LINE IS THERE
-    navigate('/');
+        localStorage.removeItem('token');
+        localStorage.removeItem('username');
+        localStorage.removeItem('role');
+        navigate('/');
     };
 
     // Predefined credentials for each role (for testing)
@@ -38,25 +39,26 @@ function LoginPage() {
         setError('');
         setLoading(true);
 
-        // For demo purposes - check against predefined credentials
         const creds = roleCredentials[role];
         
         if (username === creds.username && password === creds.password) {
-            // Create basic auth token
             const token = btoa(`${username}:${password}`);
             
-            // Store in localStorage
             localStorage.setItem('token', token);
             localStorage.setItem('username', username);
             localStorage.setItem('role', role);
             
-            // Redirect to appropriate dashboard
             navigate(creds.path);
         } else {
             setError(`Invalid credentials for ${role} role. Try ${creds.username}/${creds.password}`);
         }
         
         setLoading(false);
+    };
+
+    const handleGoogleLogin = () => {
+        // Redirect to Google OAuth endpoint
+        window.location.href = 'http://localhost:8081/api/oauth2/authorization/google';
     };
 
     const getRoleIcon = () => {
@@ -111,6 +113,33 @@ function LoginPage() {
                         </Alert>
                     )}
 
+                    {/* GOOGLE SIGN-IN BUTTON - ADDED HERE */}
+                    <Button
+                        fullWidth
+                        variant="contained"
+                        size="large"
+                        startIcon={<GoogleIcon />}
+                        onClick={handleGoogleLogin}
+                        sx={{ 
+                            mb: 3,
+                            bgcolor: '#4285F4',
+                            '&:hover': { 
+                                bgcolor: '#357ae8',
+                                filter: 'brightness(90%)'
+                            },
+                            py: 1.5,
+                            fontWeight: 'bold'
+                        }}
+                    >
+                        Sign in with Google
+                    </Button>
+
+                    <Divider sx={{ my: 2 }}>
+                        <Typography variant="caption" color="text.secondary">
+                            OR LOGIN WITH DEMO ACCOUNTS
+                        </Typography>
+                    </Divider>
+
                     <form onSubmit={handleLogin}>
                         {/* Role Selection Card */}
                         <Card sx={{ mb: 3, bgcolor: '#f5f5f5' }}>
@@ -147,7 +176,6 @@ function LoginPage() {
                                         onChange={(e) => {
                                             setRole(e.target.value);
                                             setError('');
-                                            // Auto-fill credentials for demo
                                             const creds = roleCredentials[e.target.value];
                                             setUsername(creds.username);
                                             setPassword(creds.password);
@@ -218,42 +246,6 @@ function LoginPage() {
                         >
                             {loading ? 'Logging in...' : `Sign in as ${role}`}
                         </Button>
-
-                        <Divider sx={{ my: 2 }}>
-                            <Typography variant="caption" color="text.secondary">
-                                Demo Credentials
-                            </Typography>
-                        </Divider>
-
-                        <Box sx={{ display: 'flex', justifyContent: 'space-around', mt: 2 }}>
-                            <Box textAlign="center">
-                                <PersonIcon sx={{ color: '#1976d2', fontSize: 30 }} />
-                                <Typography variant="caption" display="block">
-                                    User
-                                </Typography>
-                                <Typography variant="caption" color="text.secondary">
-                                    user/user123
-                                </Typography>
-                            </Box>
-                            <Box textAlign="center">
-                                <BuildIcon sx={{ color: '#ed6c02', fontSize: 30 }} />
-                                <Typography variant="caption" display="block">
-                                    Technician
-                                </Typography>
-                                <Typography variant="caption" color="text.secondary">
-                                    tech/tech123
-                                </Typography>
-                            </Box>
-                            <Box textAlign="center">
-                                <AdminPanelSettingsIcon sx={{ color: '#2e3b4e', fontSize: 30 }} />
-                                <Typography variant="caption" display="block">
-                                    Admin
-                                </Typography>
-                                <Typography variant="caption" color="text.secondary">
-                                    admin/admin123
-                                </Typography>
-                            </Box>
-                        </Box>
                     </form>
                 </Paper>
             </Box>
