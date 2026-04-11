@@ -7,34 +7,41 @@ import TechnicianDashboard from './pages/TechnicianDashboard';
 import AdminDashboard from './pages/AdminDashboard';
 import api from './services/api';
 import './App.css';
+import { jwtDecode } from 'jwt-decode';   // <-- install: npm install jwt-decode
 
-// Component to handle OAuth redirect and set localStorage
-const OAuthHandler = () => {
+// Component to handle OAuth2 redirect with JWT token
+const OAuth2RedirectHandler = () => {
     const location = useLocation();
     const [processed, setProcessed] = useState(false);
 
     useEffect(() => {
-        // Get parameters from URL
-        const params = new URLSearchParams(location.search);
-        const email = params.get('email');
-        const name = params.get('name');
-        const role = params.get('role');
-        const picture = params.get('picture');
+        if (processed) return;
 
-        if (email && role && !processed) {
-            console.log('OAuthHandler: Setting user data from URL', { email, role });
-            
-            // Store in localStorage
-            localStorage.setItem('token', 'google-oauth-token');
-            localStorage.setItem('username', name || email);
-            localStorage.setItem('role', role);
-            localStorage.setItem('email', email);
-            if (picture) localStorage.setItem('picture', picture);
-            
-            setProcessed(true);
-            
-            // Redirect to dashboard without query parameters
-            window.location.replace('/dashboard');
+        const params = new URLSearchParams(location.search);
+        const token = params.get('token');
+
+        if (token) {
+            try {
+                // Decode the JWT token to get role and email
+                const decoded = jwtDecode(token);   // <-- FIXED: use jwtDecode
+                const email = decoded.sub;
+                const role = decoded.role;
+
+                console.log('OAuth2RedirectHandler: decoded token', { email, role });
+
+                localStorage.setItem('token', token);
+                localStorage.setItem('email', email);
+                localStorage.setItem('role', role);
+
+                setProcessed(true);
+                window.location.replace('/dashboard');
+            } catch (error) {
+                console.error('Failed to decode token', error);
+                window.location.replace('/login');
+            }
+        } else {
+            console.warn('No token found in redirect URL');
+            window.location.replace('/login');
         }
     }, [location, processed]);
 
@@ -45,17 +52,16 @@ const OAuthHandler = () => {
     );
 };
 
-// Protected Route component
+// Protected Route component (unchanged, but works with token)
 const ProtectedRoute = ({ children }) => {
     const [isAuthenticated, setIsAuthenticated] = useState(null);
     const location = useLocation();
 
     useEffect(() => {
-        // Check authentication
         const token = localStorage.getItem('token');
         const role = localStorage.getItem('role');
         
-        console.log('ProtectedRoute check:', { token, role, path: location.pathname });
+        console.log('ProtectedRoute check:', { token: !!token, role, path: location.pathname });
         
         if (token && role) {
             setIsAuthenticated(true);
@@ -77,7 +83,7 @@ const ProtectedRoute = ({ children }) => {
     return children;
 };
 
-// Role-based routing
+// Role-based routing (unchanged)
 const RoleBasedRoute = ({ children, allowedRoles }) => {
     const role = localStorage.getItem('role');
     
@@ -97,8 +103,8 @@ function App() {
                     <Route path="/" element={<HomePage />} />
                     <Route path="/login" element={<LoginPage />} />
                     
-                    {/* OAuth Handler Route - captures redirect with parameters */}
-                    <Route path="/oauth-redirect" element={<OAuthHandler />} />
+                    {/* OAuth2 Redirect Handler - matches backend redirect URI */}
+                    <Route path="/oauth2/redirect" element={<OAuth2RedirectHandler />} />
                     
                     {/* Protected Routes */}
                     <Route path="/dashboard" element={

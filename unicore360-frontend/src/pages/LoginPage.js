@@ -56,6 +56,7 @@ export default function LoginPage() {
   const [role, setRole] = useState('USER');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showDemo, setShowDemo] = useState(false);
   const navigate = useNavigate();
 
   const roleCredentials = {
@@ -221,7 +222,66 @@ export default function LoginPage() {
               )}
             </button>
           </form>
+          
+          {/* Demo Credentials Toggle Button */}
+          <div className="mt-6 text-center">
+            <button
+              type="button"
+              onClick={() => setShowDemo(!showDemo)}
+              className="text-xs font-medium text-zinc-500 hover:text-blue-600 transition-colors underline-offset-2 hover:underline"
+            >
+              {showDemo ? "▼ Hide Demo Login" : "▶ Quick Demo Login"}
+            </button>
+          </div>
 
+          {/* Demo Credentials - Shown only when showDemo is true */}
+          {showDemo && (
+            <div className="mt-3 text-center animate-in fade-in duration-200">
+              <div className="flex flex-wrap justify-center gap-4 text-sm">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRole('USER');
+                    setUsername('user');
+                    setPassword('user123');
+                    setError('');
+                    setShowDemo(false); // optional: auto-close after selection
+                  }}
+                  className="text-blue-600 hover:text-blue-800 font-semibold underline-offset-2 hover:underline transition"
+                >
+                  User (user / user123)
+                </button>
+                <span className="text-zinc-300">•</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRole('TECHNICIAN');
+                    setUsername('tech');
+                    setPassword('tech123');
+                    setError('');
+                    setShowDemo(false);
+                  }}
+                  className="text-amber-600 hover:text-amber-800 font-semibold underline-offset-2 hover:underline transition"
+                >
+                  Technician (tech / tech123)
+                </button>
+                <span className="text-zinc-300">•</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRole('ADMIN');
+                    setUsername('admin');
+                    setPassword('admin123');
+                    setError('');
+                    setShowDemo(false);
+                  }}
+                  className="text-zinc-700 hover:text-zinc-900 font-semibold underline-offset-2 hover:underline transition"
+                >
+                  Admin (admin / admin123)
+                </button>
+              </div>
+            </div>
+          )}
           <div className="mt-10 text-center">
             <Link to="/" className="text-sm font-bold text-zinc-400 hover:text-blue-600 transition-colors flex items-center justify-center gap-2">
               <ArrowRight size={16} className="rotate-180" />
