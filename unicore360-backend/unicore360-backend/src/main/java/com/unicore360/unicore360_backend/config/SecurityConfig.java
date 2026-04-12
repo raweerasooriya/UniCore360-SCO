@@ -15,7 +15,7 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import java.util.Arrays;
-import com.unicore360.unicore360_backend.security.JwtAuthenticationFilter; // Add this
+import com.unicore360.unicore360_backend.security.JwtAuthenticationFilter;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
@@ -27,18 +27,17 @@ public class SecurityConfig {
 
     private final CustomOAuth2UserService customOAuth2UserService;
     private final JwtTokenProvider jwtTokenProvider;
-    private final JwtAuthenticationFilter jwtAuthenticationFilter; // 1. Inject the filter
+    private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(csrf -> csrf.disable())
-                // 2. Make the session Stateless (very important for JWT)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(authz -> authz
                         .requestMatchers("/", "/public/**", "/oauth2/**", "/api/public/**").permitAll()
-                        .requestMatchers("/api/admin/**").hasRole("ADMIN") // Protect admin routes
+                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated()
                 )
                 .oauth2Login(oauth2 -> oauth2
@@ -48,9 +47,7 @@ public class SecurityConfig {
                         .successHandler(oauth2LoginSuccessHandler())
                 );
 
-        // 3. Add our JWT filter before the standard UsernamePasswordAuthenticationFilter
         http.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
-
         return http.build();
     }
 
@@ -59,10 +56,12 @@ public class SecurityConfig {
         return (request, response, authentication) -> {
             CustomOAuth2User oAuth2User = (CustomOAuth2User) authentication.getPrincipal();
             String email = oAuth2User.getEmail();
+            String name = oAuth2User.getName();          // 👈 get name from Google
             String role = oAuth2User.getRole().name();
 
-            String token = jwtTokenProvider.generateToken(email, oAuth2User.getRole());
-            System.out.println("Generated JWT for " + email + " with role " + role);
+            // 👇 pass name to generateToken
+            String token = jwtTokenProvider.generateToken(email, name, oAuth2User.getRole());
+            System.out.println("Generated JWT for " + email + " (name: " + name + ") with role " + role);
 
             String redirectUrl = "http://localhost:3000/oauth2/redirect?token=" + token;
             response.sendRedirect(redirectUrl);

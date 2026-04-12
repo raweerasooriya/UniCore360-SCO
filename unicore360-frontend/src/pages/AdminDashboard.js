@@ -95,7 +95,7 @@ export default function AdminDashboard() {
   const [users, setUsers] = useState([]);
   const [usersLoading, setUsersLoading] = useState(false);
   const navigate = useNavigate();
-  const username = localStorage.getItem('username') || 'Admin';
+  const username  = localStorage.getItem('name') || 'Admin';
 
   // ---------- Mock Data (Resources, Bookings, Tickets - keep as before) ----------
   const [resources, setResources] = useState([

@@ -26,6 +26,9 @@ const OAuth2RedirectHandler = () => {
                 const decoded = jwtDecode(token);   // <-- FIXED: use jwtDecode
                 const email = decoded.sub;
                 const role = decoded.role;
+                const name = decoded.name;               // 👈 extract name
+                localStorage.setItem('name', name);
+
 
                 console.log('OAuth2RedirectHandler: decoded token', { email, role });
 
