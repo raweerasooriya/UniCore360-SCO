@@ -20,7 +20,10 @@ import {
   Play,
   CheckCircle,
   LayoutDashboard,
-  ListTodo
+  ListTodo,
+  Eye,
+  X,
+  MessageSquare
 } from 'lucide-react';
 import api from '../services/api';
 
@@ -77,50 +80,97 @@ const StatusBadge = ({ status }) => {
     'IN_PROGRESS': 'bg-amber-50 text-amber-600 border-amber-100',
     'RESOLVED': 'bg-emerald-50 text-emerald-600 border-emerald-100',
     'CLOSED': 'bg-zinc-50 text-zinc-400 border-zinc-100',
+    'REJECTED': 'bg-red-50 text-red-600 border-red-100',
   };
   return (
     <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${styles[status] || ''}`}>
-      {status.replace('_', ' ')}
+      {status?.replace('_', ' ')}
     </span>
   );
 };
 
 export default function TechnicianDashboard() {
   const [activeView, setActiveView] = useState('overview');
-  const [unreadCount, setUnreadCount] = useState(1);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [assignedTickets, setAssignedTickets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [openDialog, setOpenDialog] = useState(false);
+  
+  // Ticket details modal
   const [selectedTicket, setSelectedTicket] = useState(null);
-  const [resolutionNotes, setResolutionNotes] = useState('');
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [commentText, setCommentText] = useState('');
+  const [submittingComment, setSubmittingComment] = useState(false);
+  
+  // Status update (inline without modal)
+  const [updatingStatus, setUpdatingStatus] = useState(null);
+  
   const navigate = useNavigate();
-
-  const username  = localStorage.getItem('name') || 'Technician';
+  const username = localStorage.getItem('name') || 'Technician';
 
   useEffect(() => {
     const role = localStorage.getItem('role');
     if (role !== 'TECHNICIAN') {
       navigate('/login');
     }
-    fetchTechnicianData();
+    fetchAssignedTickets();
   }, [navigate]);
 
-  const fetchTechnicianData = async () => {
+  // Fetch assigned tickets from backend
+  const fetchAssignedTickets = async () => {
+    setLoading(true);
     try {
-      // Mock data (replace with API call later)
-      setAssignedTickets([
-        { id: 101, title: 'Projector not working', category: 'EQUIPMENT', priority: 'HIGH', location: 'Room 201', status: 'OPEN', created: '2026-03-02' },
-        { id: 102, title: 'AC not cooling', category: 'FACILITY', priority: 'MEDIUM', location: 'Lab 101', status: 'IN_PROGRESS', created: '2026-03-01' },
-        { id: 103, title: 'Network issue', category: 'NETWORK', priority: 'HIGH', location: 'Library', status: 'OPEN', created: '2026-03-02' },
-        { id: 104, title: 'Broken chair', category: 'FACILITY', priority: 'LOW', location: 'Room 105', status: 'RESOLVED', created: '2026-02-28' },
-        { id: 105, title: 'Computer not booting', category: 'EQUIPMENT', priority: 'HIGH', location: 'Lab 102', status: 'OPEN', created: '2026-03-02' },
-        { id: 106, title: 'Light flickering', category: 'FACILITY', priority: 'LOW', location: 'Hallway', status: 'IN_PROGRESS', created: '2026-03-01' },
-      ]);
+      const response = await api.get('/technician/tickets');
+      setAssignedTickets(response.data);
     } catch (err) {
-      setError('Failed to fetch data');
+      console.error('Failed to fetch assigned tickets', err);
+      setError('Could not load tickets. Please try again later.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Update ticket status (OPEN -> IN_PROGRESS -> RESOLVED)
+  const updateTicketStatus = async (ticketId, newStatus) => {
+    setUpdatingStatus(ticketId);
+    try {
+      await api.put(`/technician/tickets/${ticketId}/status`, { status: newStatus });
+      // Refresh list
+      await fetchAssignedTickets();
+    } catch (err) {
+      console.error('Status update failed', err);
+      alert('Failed to update status. Please try again.');
+    } finally {
+      setUpdatingStatus(null);
+    }
+  };
+
+  // Fetch single ticket details (for modal)
+  const fetchTicketDetails = async (ticketId) => {
+    try {
+      const response = await api.get(`/technician/tickets/${ticketId}`);
+      setSelectedTicket(response.data);
+      setDetailsOpen(true);
+    } catch (err) {
+      console.error('Failed to fetch ticket details', err);
+      alert('Could not load ticket details.');
+    }
+  };
+
+  // Add comment to ticket
+  const addComment = async (ticketId, text) => {
+    if (!text.trim()) return;
+    setSubmittingComment(true);
+    try {
+      await api.post(`/tickets/${ticketId}/comments`, { text });
+      // Refresh details
+      await fetchTicketDetails(ticketId);
+      setCommentText('');
+    } catch (err) {
+      console.error('Failed to add comment', err);
+      alert('Could not add comment.');
+    } finally {
+      setSubmittingComment(false);
     }
   };
 
@@ -129,36 +179,15 @@ export default function TechnicianDashboard() {
     navigate('/');
   };
 
-  const handleStatusUpdate = (ticketId, newStatus) => {
-    setAssignedTickets(prev =>
-      prev.map(ticket =>
-        ticket.id === ticketId ? { ...ticket, status: newStatus } : ticket
-      )
-    );
-  };
-
-  const handleOpenDialog = (ticket) => {
-    setSelectedTicket(ticket);
-    setResolutionNotes('');
-    setOpenDialog(true);
-  };
-
-  const handleResolveTicket = () => {
-    if (selectedTicket) {
-      handleStatusUpdate(selectedTicket.id, 'RESOLVED');
-      setOpenDialog(false);
-    }
-  };
-
+  // Computed stats
   const openTickets = assignedTickets.filter(t => t.status === 'OPEN').length;
   const inProgressTickets = assignedTickets.filter(t => t.status === 'IN_PROGRESS').length;
-  const resolvedToday = assignedTickets.filter(t => t.status === 'RESOLVED').length;
+  const resolvedTickets = assignedTickets.filter(t => t.status === 'RESOLVED').length;
   const totalAssigned = assignedTickets.length;
 
   // ---------- Panel Renderers ----------
   const renderOverview = () => (
     <div className="space-y-8">
-      {/* Welcome & Stats */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         <div className="lg:col-span-4 bg-amber-600 rounded-[2.5rem] p-8 md:p-12 text-white relative overflow-hidden shadow-2xl shadow-amber-200">
           <div className="relative z-10">
@@ -178,14 +207,13 @@ export default function TechnicianDashboard() {
         </div>
 
         <StatCard label="Open" value={openTickets} icon={AlertCircle} colorClass="bg-red-500" subtext="Requires Action" />
-        <StatCard label="Active" value={inProgressTickets} icon={Activity} colorClass="bg-amber-500" subtext="In Progress" />
-        <StatCard label="Resolved" value={resolvedToday} icon={CheckCircle2} colorClass="bg-emerald-500" subtext="Completed Today" />
+        <StatCard label="In Progress" value={inProgressTickets} icon={Activity} colorClass="bg-amber-500" subtext="Active" />
+        <StatCard label="Resolved" value={resolvedTickets} icon={CheckCircle2} colorClass="bg-emerald-500" subtext="Completed" />
         <StatCard label="Assigned" value={totalAssigned} icon={Ticket} colorClass="bg-zinc-900" subtext="Total Workload" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Priority Summary */}
-        <div className="lg:col-span-1 order-2 lg:order-1">
+        <div className="lg:col-span-1">
           <div className="bg-white rounded-[2rem] border border-zinc-200 p-8 shadow-sm">
             <h2 className="text-xl font-black text-zinc-900 mb-6 flex items-center gap-2">
               <BarChart3 size={20} className="text-amber-600" />
@@ -208,41 +236,23 @@ export default function TechnicianDashboard() {
           </div>
         </div>
 
-        {/* Recent Activity */}
-        <div className="lg:col-span-2 order-1 lg:order-2">
+        <div className="lg:col-span-2">
           <div className="bg-white rounded-[2rem] border border-zinc-200 p-8 shadow-sm">
             <h2 className="text-xl font-black text-zinc-900 mb-6 flex items-center gap-2">
               <History size={20} className="text-amber-600" />
-              Recent Activity
+              Recent Tickets
             </h2>
-            <div className="space-y-6">
-              <div className="flex gap-4">
-                <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center shrink-0 text-amber-600">
-                  <Play size={14} fill="currentColor" />
+            <div className="space-y-4">
+              {assignedTickets.slice(0, 3).map(ticket => (
+                <div key={ticket.id} className="flex items-center justify-between p-3 bg-zinc-50 rounded-xl">
+                  <div>
+                    <div className="text-sm font-bold">#{ticket.id} - {ticket.title}</div>
+                    <div className="text-xs text-zinc-500">{ticket.location}</div>
+                  </div>
+                  <StatusBadge status={ticket.status} />
                 </div>
-                <div>
-                  <p className="text-xs font-bold text-zinc-900">Started Ticket #103</p>
-                  <p className="text-[10px] text-zinc-400">10 minutes ago</p>
-                </div>
-              </div>
-              <div className="flex gap-4">
-                <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center shrink-0 text-emerald-600">
-                  <CheckCircle size={14} />
-                </div>
-                <div>
-                  <p className="text-xs font-bold text-zinc-900">Resolved Ticket #101</p>
-                  <p className="text-[10px] text-zinc-400">2 hours ago</p>
-                </div>
-              </div>
-              <div className="flex gap-4">
-                <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center shrink-0 text-blue-600">
-                  <Ticket size={14} />
-                </div>
-                <div>
-                  <p className="text-xs font-bold text-zinc-900">Assigned Ticket #107</p>
-                  <p className="text-[10px] text-zinc-400">Yesterday</p>
-                </div>
-              </div>
+              ))}
+              {assignedTickets.length === 0 && <div className="text-center text-zinc-400">No tickets assigned yet.</div>}
             </div>
           </div>
         </div>
@@ -258,79 +268,161 @@ export default function TechnicianDashboard() {
             <Ticket size={20} className="text-amber-600" />
             My Assigned Tickets
           </h2>
-          <div className="flex gap-2">
-            <button className="px-4 py-2 bg-zinc-50 text-zinc-500 rounded-full text-xs font-bold hover:bg-zinc-100 transition-colors">Filter</button>
-            <button className="px-4 py-2 bg-zinc-900 text-white rounded-full text-xs font-bold hover:bg-zinc-800 transition-colors">Export</button>
-          </div>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left">
-            <thead>
-              <tr className="bg-zinc-50/50 text-zinc-400 text-[10px] font-black uppercase tracking-widest">
-                <th className="px-8 py-4">ID & Title</th>
-                <th className="px-8 py-4">Priority</th>
-                <th className="px-8 py-4">Location</th>
-                <th className="px-8 py-4">Status</th>
-                <th className="px-8 py-4 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-zinc-100">
-              {assignedTickets.map((ticket) => (
-                <tr key={ticket.id} className={`hover:bg-zinc-50/50 transition-colors group ${ticket.priority === 'HIGH' && ticket.status === 'OPEN' ? 'bg-red-50/30' : ''}`}>
-                  <td className="px-8 py-5">
-                    <div className="text-[10px] font-black text-zinc-400 mb-1">#{ticket.id}</div>
-                    <div className="font-bold text-zinc-900">{ticket.title}</div>
-                    <div className="text-[10px] font-bold text-zinc-400 uppercase tracking-tighter">{ticket.category}</div>
-                  </td>
-                  <td className="px-8 py-5">
-                    <PriorityBadge priority={ticket.priority} />
-                  </td>
-                  <td className="px-8 py-5">
-                    <div className="flex items-center gap-1.5 text-sm text-zinc-500 font-medium">
-                      <MapPin size={14} className="text-zinc-400" />
-                      {ticket.location}
+        {loading ? (
+          <div className="p-12 text-center">Loading tickets...</div>
+        ) : error ? (
+          <div className="p-12 text-center text-red-500">{error}</div>
+        ) : assignedTickets.length === 0 ? (
+          <div className="p-12 text-center text-zinc-400">No tickets assigned to you.</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead>
+                <tr className="bg-zinc-50/50 text-zinc-400 text-[10px] font-black uppercase tracking-widest">
+                  <th className="px-8 py-4">ID & Title</th>
+                  <th className="px-8 py-4">Priority</th>
+                  <th className="px-8 py-4">Location</th>
+                  <th className="px-8 py-4">Status</th>
+                  <th className="px-8 py-4 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-zinc-100">
+                {assignedTickets.map((ticket) => (
+                  <tr key={ticket.id} className={`hover:bg-zinc-50/50 transition-colors group ${ticket.priority === 'HIGH' && ticket.status === 'OPEN' ? 'bg-red-50/30' : ''}`}>
+                    <td className="px-8 py-5">
+                      <div className="text-[10px] font-black text-zinc-400 mb-1">#{ticket.id}</div>
+                      <div className="font-bold text-zinc-900">{ticket.title}</div>
+                      <div className="text-[10px] font-bold text-zinc-400 uppercase tracking-tighter">{ticket.category}</div>
+                    </td>
+                    <td className="px-8 py-5"><PriorityBadge priority={ticket.priority} /></td>
+                    <td className="px-8 py-5">
+                      <div className="flex items-center gap-1.5 text-sm text-zinc-500 font-medium">
+                        <MapPin size={14} className="text-zinc-400" />
+                        {ticket.location}
+                      </div>
+                    </td>
+                    <td className="px-8 py-5"><StatusBadge status={ticket.status} /></td>
+                    <td className="px-8 py-5 text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => fetchTicketDetails(ticket.id)}
+                          className="p-2 text-zinc-400 hover:text-blue-600 transition-colors"
+                          title="View Details"
+                        >
+                          <Eye size={16} />
+                        </button>
+                        {ticket.status === 'OPEN' && (
+                          <button
+                            onClick={() => updateTicketStatus(ticket.id, 'IN_PROGRESS')}
+                            disabled={updatingStatus === ticket.id}
+                            className="p-2 bg-amber-50 text-amber-600 rounded-xl hover:bg-amber-600 hover:text-white transition-all shadow-sm disabled:opacity-50"
+                            title="Start Work"
+                          >
+                            <Play size={16} fill="currentColor" />
+                          </button>
+                        )}
+                        {ticket.status === 'IN_PROGRESS' && (
+                          <button
+                            onClick={() => updateTicketStatus(ticket.id, 'RESOLVED')}
+                            disabled={updatingStatus === ticket.id}
+                            className="p-2 bg-emerald-50 text-emerald-600 rounded-xl hover:bg-emerald-600 hover:text-white transition-all shadow-sm disabled:opacity-50"
+                            title="Resolve Ticket"
+                          >
+                            <CheckCircle size={16} />
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Ticket Details Modal */}
+      <AnimatePresence>
+        {detailsOpen && selectedTicket && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setDetailsOpen(false)}
+              className="absolute inset-0 bg-zinc-900/60 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative w-full max-w-2xl bg-white rounded-[2.5rem] shadow-2xl overflow-hidden max-h-[90vh] overflow-y-auto"
+            >
+              <div className="p-8">
+                <div className="flex justify-between items-start mb-4">
+                  <h3 className="text-2xl font-black">#{selectedTicket.id} - {selectedTicket.title}</h3>
+                  <button onClick={() => setDetailsOpen(false)} className="p-2 text-zinc-400 hover:text-zinc-600">
+                    <X size={20} />
+                  </button>
+                </div>
+                <div className="space-y-4">
+                  <div><span className="font-bold">Description:</span> {selectedTicket.description}</div>
+                  <div><span className="font-bold">Location:</span> {selectedTicket.location}</div>
+                  <div><span className="font-bold">Category:</span> {selectedTicket.category}</div>
+                  <div><span className="font-bold">Priority:</span> <PriorityBadge priority={selectedTicket.priority} /></div>
+                  <div><span className="font-bold">Status:</span> <StatusBadge status={selectedTicket.status} /></div>
+                  {selectedTicket.user && <div><span className="font-bold">Reported by:</span> {selectedTicket.user.name} ({selectedTicket.user.email})</div>}
+                  {selectedTicket.attachments?.length > 0 && (
+                    <div>
+                      <span className="font-bold">Attachments:</span>
+                      <div className="flex gap-2 mt-2 flex-wrap">
+                        {selectedTicket.attachments.map((att, idx) => (
+                          <a key={idx} href={att.fileUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline text-sm">
+                            📎 {att.fileName}
+                          </a>
+                        ))}
+                      </div>
                     </div>
-                  </td>
-                  <td className="px-8 py-5">
-                    <StatusBadge status={ticket.status} />
-                  </td>
-                  <td className="px-8 py-5 text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      {ticket.status === 'OPEN' && (
-                        <button 
-                          onClick={() => handleStatusUpdate(ticket.id, 'IN_PROGRESS')}
-                          className="p-2 bg-amber-50 text-amber-600 rounded-xl hover:bg-amber-600 hover:text-white transition-all shadow-sm"
-                          title="Start Work"
-                        >
-                          <Play size={16} fill="currentColor" />
-                        </button>
-                      )}
-                      {ticket.status === 'IN_PROGRESS' && (
-                        <button 
-                          onClick={() => handleOpenDialog(ticket)}
-                          className="p-2 bg-emerald-50 text-emerald-600 rounded-xl hover:bg-emerald-600 hover:text-white transition-all shadow-sm"
-                          title="Resolve Ticket"
-                        >
-                          <CheckCircle size={16} />
-                        </button>
-                      )}
-                      <button className="p-2 text-zinc-400 hover:text-blue-600 transition-colors">
-                        <ChevronRight size={18} />
+                  )}
+                  <div>
+                    <span className="font-bold">Comments</span>
+                    <div className="mt-2 space-y-2 max-h-60 overflow-y-auto">
+                      {selectedTicket.comments?.length ? selectedTicket.comments.map(c => (
+                        <div key={c.id} className="bg-zinc-50 p-3 rounded-xl">
+                          <div className="text-xs font-bold">{c.user?.name} <span className="text-zinc-400">{new Date(c.createdAt).toLocaleString()}</span></div>
+                          <div className="text-sm mt-1">{c.text}</div>
+                        </div>
+                      )) : <div className="text-zinc-400 text-sm">No comments yet.</div>}
+                    </div>
+                    <div className="flex gap-2 mt-3">
+                      <textarea
+                        value={commentText}
+                        onChange={(e) => setCommentText(e.target.value)}
+                        className="flex-1 p-3 bg-zinc-50 border rounded-xl text-sm"
+                        rows={2}
+                        placeholder="Add a comment..."
+                      />
+                      <button
+                        onClick={() => addComment(selectedTicket.id, commentText)}
+                        disabled={submittingComment || !commentText.trim()}
+                        className="px-4 py-2 bg-amber-600 text-white rounded-xl font-bold disabled:opacity-50"
+                      >
+                        Post
                       </button>
                     </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 
   return (
     <div className="min-h-screen bg-zinc-50 flex flex-col font-sans">
-      {/* Header */}
       <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-zinc-200">
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
           <Logo />
@@ -360,9 +452,7 @@ export default function TechnicianDashboard() {
         </div>
       </header>
 
-      {/* Sidebar + Main Content */}
       <div className="flex flex-1">
-        {/* Left Sidebar */}
         <aside className="w-64 bg-white border-r border-zinc-200 flex-shrink-0 hidden md:block">
           <div className="sticky top-16 p-4 space-y-2">
             <div className="px-3 py-2 text-xs font-bold text-zinc-400 uppercase tracking-wider">Navigation</div>
@@ -385,7 +475,6 @@ export default function TechnicianDashboard() {
           </div>
         </aside>
 
-        {/* Main Content */}
         <main className="flex-1 max-w-7xl mx-auto px-6 py-8 w-full">
           <AnimatePresence mode="wait">
             <motion.div
@@ -401,68 +490,6 @@ export default function TechnicianDashboard() {
           </AnimatePresence>
         </main>
       </div>
-
-      {/* Resolution Dialog */}
-      <AnimatePresence>
-        {openDialog && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setOpenDialog(false)}
-              className="absolute inset-0 bg-zinc-900/60 backdrop-blur-sm"
-            />
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.9, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              className="relative w-full max-w-lg bg-white rounded-[2.5rem] shadow-2xl overflow-hidden"
-            >
-              <div className="p-8 md:p-10">
-                <div className="flex items-center gap-4 mb-8">
-                  <div className="w-12 h-12 rounded-2xl bg-emerald-500 flex items-center justify-center text-white">
-                    <CheckCircle2 size={24} />
-                  </div>
-                  <div>
-                    <h3 className="text-2xl font-black text-zinc-900">Resolve Ticket</h3>
-                    <p className="text-zinc-500 text-sm font-medium">#{selectedTicket?.id} — {selectedTicket?.title}</p>
-                  </div>
-                </div>
-
-                <div className="space-y-6">
-                  <div>
-                    <label className="block text-xs font-black text-zinc-400 uppercase tracking-widest mb-2">Resolution Notes</label>
-                    <textarea 
-                      autoFocus
-                      rows={4}
-                      value={resolutionNotes}
-                      onChange={(e) => setResolutionNotes(e.target.value)}
-                      placeholder="Describe the fix in detail..."
-                      className="w-full p-4 bg-zinc-50 border border-zinc-100 rounded-2xl outline-none focus:ring-2 focus:ring-emerald-600/20 focus:border-emerald-600 transition-all font-medium text-zinc-900 resize-none"
-                    />
-                  </div>
-                  
-                  <div className="flex gap-3">
-                    <button 
-                      onClick={() => setOpenDialog(false)}
-                      className="flex-1 py-4 bg-zinc-100 text-zinc-600 rounded-2xl font-bold hover:bg-zinc-200 transition-all"
-                    >
-                      Cancel
-                    </button>
-                    <button 
-                      onClick={handleResolveTicket}
-                      className="flex-[2] py-4 bg-emerald-600 text-white rounded-2xl font-bold hover:bg-emerald-700 transition-all shadow-xl shadow-emerald-100"
-                    >
-                      Mark as Resolved
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
 
       <footer className="py-8 text-center text-zinc-400 text-xs font-medium">
         © 2026 UniCore 360 Operations Hub. Built for PAF IT3030.

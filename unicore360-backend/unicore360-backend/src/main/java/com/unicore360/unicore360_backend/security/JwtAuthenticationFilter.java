@@ -8,6 +8,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.User; // Import the Spring User
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
@@ -33,41 +35,36 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             String jwt = getJwtFromRequest(request);
 
             if (StringUtils.hasText(jwt) && tokenProvider.validateToken(jwt)) {
-
                 String email = tokenProvider.getEmailFromToken(jwt);
-
-                // 🔥 IMPORTANT: normalize role
                 String role = tokenProvider.getRoleFromToken(jwt);
-                role = role.replace("ROLE_", ""); // remove if already exists
 
+                // Normalize role
+                role = role.replace("ROLE_", "");
                 String roleWithPrefix = "ROLE_" + role;
 
                 if (email != null) {
+                    SimpleGrantedAuthority authority = new SimpleGrantedAuthority(roleWithPrefix);
 
-                    SimpleGrantedAuthority authority =
-                            new SimpleGrantedAuthority(roleWithPrefix);
+                    // ✅ FIX: Create a UserDetails object instead of passing just the email string
+                    UserDetails userDetails = new User(email, "", Collections.singletonList(authority));
 
                     UsernamePasswordAuthenticationToken authentication =
                             new UsernamePasswordAuthenticationToken(
-                                    email,
+                                    userDetails, // Pass the object here
                                     null,
-                                    Collections.singletonList(authority)
+                                    userDetails.getAuthorities()
                             );
 
-                    authentication.setDetails(
-                            new WebAuthenticationDetailsSource().buildDetails(request)
-                    );
-
+                    authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                     SecurityContextHolder.getContext().setAuthentication(authentication);
 
-                    // DEBUG (keep for now)
+                    // Debug logs
                     System.out.println("==== JWT AUTH SUCCESS ====");
                     System.out.println("Email: " + email);
                     System.out.println("Role: " + roleWithPrefix);
                     System.out.println("==========================");
                 }
             }
-
         } catch (Exception ex) {
             System.out.println("JWT ERROR: " + ex.getMessage());
         }
@@ -77,7 +74,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private String getJwtFromRequest(HttpServletRequest request) {
         String bearerToken = request.getHeader("Authorization");
-
         if (StringUtils.hasText(bearerToken) && bearerToken.startsWith("Bearer ")) {
             return bearerToken.substring(7);
         }

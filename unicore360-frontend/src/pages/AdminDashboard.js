@@ -20,6 +20,7 @@ import {
   MoreVertical,
   TrendingUp,
   Clock,
+  Eye,
   ShieldCheck,
   LayoutDashboard
 } from 'lucide-react';
@@ -86,6 +87,19 @@ const StatusBadge = ({ status }) => {
   );
 };
 
+const PriorityBadge = ({ priority }) => {
+  const styles = {
+    'HIGH': 'bg-red-50 text-red-700 border-red-100',
+    'MEDIUM': 'bg-amber-50 text-amber-700 border-amber-100',
+    'LOW': 'bg-emerald-50 text-emerald-700 border-emerald-100',
+  };
+  return (
+    <span className={`px-2 py-0.5 rounded-full text-[10px] font-black border uppercase ${styles[priority] || ''}`}>
+      {priority}
+    </span>
+  );
+};
+
 // ---------- Main AdminDashboard ----------
 export default function AdminDashboard() {
   const [activeView, setActiveView] = useState('overview');
@@ -106,7 +120,16 @@ export default function AdminDashboard() {
   const [bookings, setBookings] = useState([]);
   const [bookingsLoading, setBookingsLoading] = useState(false);
   const [rejectDialog, setRejectDialog] = useState({ open: false, bookingId: null, reason: '' });
-  
+  // Add these state variables near the top of AdminDashboard component
+  const [tickets, setTickets] = useState([]);
+  const [ticketsLoading, setTicketsLoading] = useState(false);
+  const [technicians, setTechnicians] = useState([]);
+  const [assignDialog, setAssignDialog] = useState({ open: false, ticketId: null, technicianId: '' });
+  const [statusDialog, setStatusDialog] = useState({ open: false, ticketId: null, newStatus: '' });
+  const [selectedTicketDetails, setSelectedTicketDetails] = useState(null);
+  const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
+  const [rejectReason, setRejectReason] = useState('');
+
   // Fetch resources when activeView === 'resources'
   useEffect(() => {
       if (activeView === 'resources') {
@@ -168,12 +191,13 @@ export default function AdminDashboard() {
       }
   };
 
-
-  const [tickets, setTickets] = useState([
-    { id: 1, title: 'Projector not working', user: 'John Student', priority: 'HIGH', status: 'OPEN', assignedTo: null },
-    { id: 2, title: 'AC not cooling', user: 'Jane Smith', priority: 'MEDIUM', status: 'IN_PROGRESS', assignedTo: 'Jane Tech' },
-    { id: 3, title: 'Network issue', user: 'Bob Wilson', priority: 'HIGH', status: 'OPEN', assignedTo: null },
-  ]);
+  // Fetch tickets when activeView === 'tickets'
+  useEffect(() => {
+    if (activeView === 'tickets') {
+      fetchTickets();
+      fetchTechnicians();
+    }
+  }, [activeView]);
 
   // ---------- Role Check ----------
   useEffect(() => {
@@ -202,6 +226,76 @@ export default function AdminDashboard() {
           fetchUsers();
       }
   }, [activeView]);
+
+  // API calls
+  const fetchTickets = async () => {
+    setTicketsLoading(true);
+    try {
+      const response = await api.get('/admin/tickets');
+      setTickets(response.data);
+    } catch (err) {
+      console.error('Failed to fetch tickets', err);
+      alert('Could not load tickets');
+    } finally {
+      setTicketsLoading(false);
+    }
+  };
+
+  const fetchTechnicians = async () => {
+    try {
+      const response = await api.get('/admin/technicians');
+      setTechnicians(response.data);
+    } catch (err) {
+      console.error('Failed to fetch technicians', err);
+    }
+  };
+
+  const assignTechnician = async (ticketId, technicianId) => {
+    try {
+      await api.put(`/admin/tickets/${ticketId}/assign`, { technicianId });
+      await fetchTickets();
+      setAssignDialog({ open: false, ticketId: null, technicianId: '' });
+    } catch (err) {
+      alert('Assignment failed');
+    }
+  };
+
+  const updateTicketStatus = async (ticketId, newStatus) => {
+    try {
+      await api.put(`/admin/tickets/${ticketId}/status`, { status: newStatus });
+      await fetchTickets();
+      setStatusDialog({ open: false, ticketId: null, newStatus: '' });
+    } catch (err) {
+      alert('Status update failed');
+    }
+  };
+
+  const rejectTicket = async (ticketId, reason) => {
+    try {
+      await api.put(`/admin/tickets/${ticketId}/reject`, { reason });
+      await fetchTickets();
+      setRejectReason('');
+    } catch (err) {
+      alert('Rejection failed');
+    }
+  };
+
+  const fetchTicketDetails = async (ticketId) => {
+    try {
+      const response = await api.get(`/admin/tickets/${ticketId}`);
+      setSelectedTicketDetails(response.data);
+      setDetailsDialogOpen(true);
+    } catch (err) {
+      alert('Could not load ticket details');
+    }
+  };
+
+  // Filter tickets based on search query
+  const filteredTickets = tickets.filter(t =>
+    t.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    t.user?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    t.status?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   // ---------- Update User Role ----------
   const updateUserRole = async (email, newRole) => {
@@ -254,12 +348,6 @@ export default function AdminDashboard() {
       (b.user?.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       b.user?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       b.resource?.name?.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
-
-  const filteredTickets = tickets.filter(t =>
-    t.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    t.user.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    t.status.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   // ---------- Panel Renderers ----------
@@ -657,34 +745,272 @@ export default function AdminDashboard() {
       </div>
   );
 
-  const renderTicketsPanel = () => (
-    <div className="bg-white rounded-[2rem] border border-zinc-200 overflow-hidden shadow-sm">
-      <div className="px-8 py-6 flex justify-between items-center border-b border-zinc-100">
-        <div className="flex items-center gap-2"><Ticket size={20} className="text-blue-600" /><h2 className="text-xl font-black text-zinc-900">Incident Tickets</h2></div>
-        <div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" size={14} />
-          <input type="text" placeholder="Search tickets..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-9 pr-4 py-2 bg-zinc-50 border border-zinc-100 rounded-full text-xs w-64" />
-        </div>
+const renderTicketsPanel = () => (
+  <div className="bg-white rounded-[2rem] border border-zinc-200 overflow-hidden shadow-sm">
+    <div className="px-8 py-6 flex justify-between items-center border-b border-zinc-100">
+      <div className="flex items-center gap-2">
+        <Ticket size={20} className="text-blue-600" />
+        <h2 className="text-xl font-black text-zinc-900">Incident Tickets</h2>
       </div>
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" size={14} />
+        <input
+          type="text"
+          placeholder="Search tickets..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="pl-9 pr-4 py-2 bg-zinc-50 border border-zinc-100 rounded-full text-xs w-64"
+        />
+      </div>
+    </div>
+    {ticketsLoading ? (
+      <div className="p-8 text-center">Loading tickets...</div>
+    ) : (
       <div className="overflow-x-auto">
         <table className="w-full text-left">
-          <thead><tr className="bg-zinc-50/50 text-zinc-400 text-[10px] font-black uppercase tracking-widest">
-            <th className="px-8 py-4">Ticket Details</th><th className="px-8 py-4">Priority</th><th className="px-8 py-4">Status</th><th className="px-8 py-4">Assigned To</th><th className="px-8 py-4 text-right">Actions</th>
-          </tr></thead>
+          <thead className="bg-zinc-50/50 text-zinc-400 text-[10px] font-black uppercase tracking-widest">
+            <tr>
+              <th className="px-8 py-4">ID & Title</th>
+              <th className="px-8 py-4">Reported By</th>
+              <th className="px-8 py-4">Priority</th>
+              <th className="px-8 py-4">Status</th>
+              <th className="px-8 py-4">Assigned To</th>
+              <th className="px-8 py-4 text-right">Actions</th>
+            </tr>
+          </thead>
           <tbody className="divide-y divide-zinc-100">
-            {filteredTickets.map(t => (
-              <tr key={t.id} className="hover:bg-zinc-50/50">
-                <td className="px-8 py-5"><div className="font-bold">{t.title}</div><div className="text-xs text-zinc-400">Reported by {t.user}</div></td>
-                <td className="px-8 py-5"><span className={`px-2 py-0.5 rounded-full text-[10px] font-black border ${t.priority === 'HIGH' ? 'bg-red-50 text-red-700' : t.priority === 'MEDIUM' ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'}`}>{t.priority}</span></td>
-                <td className="px-8 py-5"><StatusBadge status={t.status} /></td>
-                <td className="px-8 py-5 text-sm">{t.assignedTo || 'Unassigned'}</td>
-                <td className="px-8 py-5 text-right">{!t.assignedTo ? <button className="px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold hover:bg-blue-700">Assign</button> : <button className="p-2 text-zinc-400 hover:text-blue-600"><MoreVertical size={16} /></button>}</td>
+            {filteredTickets.map((ticket) => (
+              <tr key={ticket.id} className="hover:bg-zinc-50/50">
+                <td className="px-8 py-5">
+                  <div className="font-bold text-zinc-900">{ticket.title}</div>
+                  <div className="text-[10px] text-zinc-400">#{ticket.id}</div>
+                </td>
+                <td className="px-8 py-5 text-sm text-zinc-500">
+                  {ticket.user?.name || ticket.user?.email}
+                </td>
+                <td className="px-8 py-5">
+                  <PriorityBadge priority={ticket.priority} />
+                </td>
+                <td className="px-8 py-5">
+                  <StatusBadge status={ticket.status} />
+                </td>
+                <td className="px-8 py-5 text-sm">
+                  {ticket.assignedTechnician?.name || 'Unassigned'}
+                </td>
+                <td className="px-8 py-5 text-right">
+                  <div className="flex justify-end gap-2">
+                    <button
+                      onClick={() => fetchTicketDetails(ticket.id)}
+                      className="p-2 text-zinc-400 hover:text-blue-600"
+                      title="View Details"
+                    >
+                      <Eye size={16} />
+                    </button>
+                    {!ticket.assignedTechnician && (
+                      <button
+                        onClick={() => setAssignDialog({ open: true, ticketId: ticket.id, technicianId: '' })}
+                        className="px-3 py-1 bg-blue-600 text-white rounded-xl text-xs font-bold"
+                      >
+                        Assign
+                      </button>
+                    )}
+                    {ticket.status !== 'REJECTED' && ticket.status !== 'CLOSED' && (
+                      <button
+                        onClick={() => setStatusDialog({ open: true, ticketId: ticket.id, newStatus: '' })}
+                        className="px-3 py-1 bg-amber-600 text-white rounded-xl text-xs font-bold"
+                      >
+                        Update Status
+                      </button>
+                    )}
+                    {ticket.status === 'OPEN' && (
+                      <button
+                        onClick={() => {
+                          const reason = prompt('Rejection reason:');
+                          if (reason) rejectTicket(ticket.id, reason);
+                        }}
+                        className="px-3 py-1 bg-red-600 text-white rounded-xl text-xs font-bold"
+                      >
+                        Reject
+                      </button>
+                    )}
+                  </div>
+                </td>
               </tr>
             ))}
+            {filteredTickets.length === 0 && (
+              <tr>
+                <td colSpan="6" className="px-8 py-12 text-center text-zinc-400">No tickets found</td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>
-    </div>
-  );
+    )}
+
+    {/* Assign Technician Dialog */}
+    <AnimatePresence>
+      {assignDialog.open && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setAssignDialog({ open: false, ticketId: null, technicianId: '' })}
+            className="absolute inset-0 bg-zinc-900/60 backdrop-blur-sm"
+          />
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.9, y: 20 }}
+            className="relative w-full max-w-md bg-white rounded-[2.5rem] shadow-2xl overflow-hidden"
+          >
+            <div className="p-8">
+              <h3 className="text-xl font-black mb-4">Assign Technician</h3>
+              <select
+                className="w-full p-3 bg-zinc-50 border rounded-xl mb-6"
+                value={assignDialog.technicianId}
+                onChange={(e) => setAssignDialog({ ...assignDialog, technicianId: e.target.value })}
+              >
+                <option value="">Select technician</option>
+                {technicians.map(tech => (
+                  <option key={tech.id} value={tech.id}>{tech.name} ({tech.email})</option>
+                ))}
+              </select>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setAssignDialog({ open: false, ticketId: null, technicianId: '' })}
+                  className="flex-1 py-3 bg-zinc-100 rounded-xl font-bold"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => assignTechnician(assignDialog.ticketId, assignDialog.technicianId)}
+                  disabled={!assignDialog.technicianId}
+                  className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-bold disabled:opacity-50"
+                >
+                  Assign
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      )}
+    </AnimatePresence>
+
+    {/* Update Status Dialog */}
+    <AnimatePresence>
+      {statusDialog.open && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setStatusDialog({ open: false, ticketId: null, newStatus: '' })}
+            className="absolute inset-0 bg-zinc-900/60 backdrop-blur-sm"
+          />
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.9, y: 20 }}
+            className="relative w-full max-w-md bg-white rounded-[2.5rem] shadow-2xl overflow-hidden"
+          >
+            <div className="p-8">
+              <h3 className="text-xl font-black mb-4">Update Ticket Status</h3>
+              <select
+                className="w-full p-3 bg-zinc-50 border rounded-xl mb-6"
+                value={statusDialog.newStatus}
+                onChange={(e) => setStatusDialog({ ...statusDialog, newStatus: e.target.value })}
+              >
+                <option value="">Select status</option>
+                <option value="OPEN">OPEN</option>
+                <option value="IN_PROGRESS">IN_PROGRESS</option>
+                <option value="RESOLVED">RESOLVED</option>
+                <option value="CLOSED">CLOSED</option>
+              </select>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setStatusDialog({ open: false, ticketId: null, newStatus: '' })}
+                  className="flex-1 py-3 bg-zinc-100 rounded-xl font-bold"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => updateTicketStatus(statusDialog.ticketId, statusDialog.newStatus)}
+                  disabled={!statusDialog.newStatus}
+                  className="flex-1 py-3 bg-amber-600 text-white rounded-xl font-bold disabled:opacity-50"
+                >
+                  Update
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      )}
+    </AnimatePresence>
+
+    {/* Ticket Details Dialog */}
+    <AnimatePresence>
+      {detailsDialogOpen && selectedTicketDetails && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setDetailsDialogOpen(false)}
+            className="absolute inset-0 bg-zinc-900/60 backdrop-blur-sm"
+          />
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.9, y: 20 }}
+            className="relative w-full max-w-2xl bg-white rounded-[2.5rem] shadow-2xl overflow-hidden"
+          >
+            <div className="p-8 max-h-[80vh] overflow-y-auto">
+              <div className="flex justify-between items-start mb-4">
+                <h3 className="text-2xl font-black">{selectedTicketDetails.title}</h3>
+                <button onClick={() => setDetailsDialogOpen(false)} className="p-2 text-zinc-400 hover:text-zinc-600">
+                  <X size={20} />
+                </button>
+              </div>
+              <div className="space-y-4">
+                <div><span className="font-bold">Description:</span> {selectedTicketDetails.description}</div>
+                <div><span className="font-bold">Priority:</span> <PriorityBadge priority={selectedTicketDetails.priority} /></div>
+                <div><span className="font-bold">Status:</span> <StatusBadge status={selectedTicketDetails.status} /></div>
+                <div><span className="font-bold">Reported by:</span> {selectedTicketDetails.user?.name} ({selectedTicketDetails.user?.email})</div>
+                <div><span className="font-bold">Assigned to:</span> {selectedTicketDetails.assignedTechnician?.name || 'Unassigned'}</div>
+                {selectedTicketDetails.attachments?.length > 0 && (
+                  <div>
+                    <span className="font-bold">Attachments:</span>
+                    <div className="flex gap-2 mt-2">
+                      {selectedTicketDetails.attachments.map((att, idx) => (
+                        <a key={idx} href={att.fileUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline text-sm">
+                          {att.fileName}
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                <div>
+                  <span className="font-bold">Comments:</span>
+                  {selectedTicketDetails.comments?.length ? (
+                    <div className="mt-2 space-y-2">
+                      {selectedTicketDetails.comments.map(c => (
+                        <div key={c.id} className="bg-zinc-50 p-3 rounded-xl">
+                          <div className="text-xs font-bold">{c.user?.name} <span className="text-zinc-400">{new Date(c.createdAt).toLocaleString()}</span></div>
+                          <div className="text-sm mt-1">{c.text}</div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : <div className="text-zinc-400 text-sm">No comments</div>}
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      )}
+    </AnimatePresence>
+  </div>
+);
 
   const renderOverview = () => (
     <div className="space-y-8">

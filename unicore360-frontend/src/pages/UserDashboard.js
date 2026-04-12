@@ -64,6 +64,11 @@ const StatusBadge = ({ status }) => {
   );
 };
 
+const PriorityBadge = ({ priority }) => {
+  const styles = { 'HIGH': 'bg-red-50 text-red-700', 'MEDIUM': 'bg-amber-50 text-amber-700', 'LOW': 'bg-emerald-50 text-emerald-700' };
+  return <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${styles[priority] || ''}`}>{priority}</span>;
+};
+
 const ActionCard = ({ icon: Icon, title, description, onClick, colorClass }) => (
   <button
     onClick={onClick}
@@ -92,9 +97,22 @@ export default function UserDashboard() {
   const [bookingForm, setBookingForm] = useState({ date: '', purpose: '', attendees: '' });
   const [bookingTime, setBookingTime] = useState({ start: '09:00', end: '10:00' }); // new
   const [reportDialog, setReportDialog] = useState(false);
-  const [reportForm, setReportForm] = useState({ category: '', description: '', priority: 'MEDIUM', contactEmail: '' });
   const [imageFiles, setImageFiles] = useState([]);
   const navigate = useNavigate();
+
+  // Ticket related state
+  const [myTickets, setMyTickets] = useState([]);
+  const [ticketsLoading, setTicketsLoading] = useState(false);
+  const [selectedTicket, setSelectedTicket] = useState(null);
+  const [ticketDetailsOpen, setTicketDetailsOpen] = useState(false);
+  const [commentText, setCommentText] = useState('');
+  const [submittingComment, setSubmittingComment] = useState(false);
+  // Report issue form state
+  const [reportForm, setReportForm] = useState({
+    title: '', category: '', description: '', priority: 'MEDIUM', contactEmail: '', location: ''
+  });
+  const [reportImages, setReportImages] = useState([]);
+  const [submittingReport, setSubmittingReport] = useState(false);
 
   const name = localStorage.getItem('name') || 'User';
 
@@ -107,23 +125,76 @@ export default function UserDashboard() {
   }, [navigate]);
 
   const fetchUserData = async () => {
-      setLoading(true);
-      try {
-          const resourcesRes = await api.get('/resources');
-          setResources(resourcesRes.data);
-          const bookingsRes = await api.get('/bookings/my');
-          setMyBookings(bookingsRes.data);
-          setNotifications([
-              { id: 1, title: 'Booking Approved', message: 'Your request for Conference Room A has been approved.', createdAt: new Date().toISOString(), read: false },
-              { id: 2, title: 'Maintenance Update', message: 'Lab 101 is now under maintenance.', createdAt: new Date(Date.now() - 86400000).toISOString(), read: true },
-          ]);
-          setUnreadCount(1);
-      } catch (err) {
-          console.error('Failed to fetch data', err);
-          setError('Failed to fetch data');
-      } finally {
-          setLoading(false);
-      }
+    setLoading(true);
+    try {
+      const resourcesRes = await api.get('/resources');
+      setResources(resourcesRes.data);
+      const bookingsRes = await api.get('/bookings/my');
+      setMyBookings(bookingsRes.data);
+      await fetchMyTickets();   // <-- ADD THIS LINE
+      // ... rest (notifications, etc.)
+    } catch (err) {
+      console.error('Failed to fetch data', err);
+      setError('Failed to fetch data');
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+
+  // Fetch user's tickets
+  const fetchMyTickets = async () => {
+    setTicketsLoading(true);
+    try {
+      const response = await api.get('/tickets/my');
+      setMyTickets(response.data);
+    } catch (err) {
+      console.error('Failed to fetch tickets', err);
+    } finally {
+      setTicketsLoading(false);
+    }
+  };
+
+  // Create a new ticket (with attachments)
+  const createTicket = async (formData) => {
+    try {
+      const response = await api.post('/tickets', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      await fetchMyTickets(); // refresh list
+      return response.data;
+    } catch (err) {
+      console.error('Ticket creation failed', err);
+      throw err;
+    }
+  };
+
+  // Fetch single ticket details
+  const fetchTicketDetails = async (ticketId) => {
+    try {
+      const response = await api.get(`/tickets/${ticketId}`);
+      setSelectedTicket(response.data);
+      setTicketDetailsOpen(true);
+    } catch (err) {
+      console.error('Failed to fetch ticket details', err);
+      alert('Could not load ticket details');
+    }
+  };
+
+  // Add comment to ticket
+  const addComment = async (ticketId, text) => {
+    setSubmittingComment(true);
+    try {
+      await api.post(`/tickets/${ticketId}/comments`, { text });
+      // refresh ticket details
+      await fetchTicketDetails(ticketId);
+      setCommentText('');
+    } catch (err) {
+      console.error('Failed to add comment', err);
+      alert('Could not add comment');
+    } finally {
+      setSubmittingComment(false);
+    }
   };
 
   const handleLogout = () => {
@@ -313,19 +384,253 @@ export default function UserDashboard() {
   );
 
   // ---------- Report Issue View ----------
-  const renderReportIssue = () => (
-    <div className="bg-white rounded-[2rem] border border-zinc-200 overflow-hidden shadow-sm">
-      <div className="px-8 py-6 border-b border-zinc-100"><h2 className="text-xl font-black text-zinc-900 flex items-center gap-2"><PlusCircle size={20} className="text-zinc-900" /> Report an Issue</h2></div>
-      <div className="p-8">
-        <form onSubmit={(e) => { e.preventDefault(); handleReportIssue(); }} className="space-y-6">
-          <div><label className="block text-xs font-black mb-1">Category</label><select className="w-full p-3 bg-zinc-50 border rounded-xl" value={reportForm.category} onChange={e => setReportForm({...reportForm, category: e.target.value})} required><option value="">Select</option><option>Equipment</option><option>Facility</option><option>Network</option><option>Other</option></select></div>
-          <div><label className="block text-xs font-black mb-1">Description</label><textarea rows={3} className="w-full p-3 bg-zinc-50 border rounded-xl" value={reportForm.description} onChange={e => setReportForm({...reportForm, description: e.target.value})} required /></div>
-          <div><label className="block text-xs font-black mb-1">Priority</label><select className="w-full p-3 bg-zinc-50 border rounded-xl" value={reportForm.priority} onChange={e => setReportForm({...reportForm, priority: e.target.value})}><option>LOW</option><option>MEDIUM</option><option>HIGH</option></select></div>
-          <div><label className="block text-xs font-black mb-1">Contact Email</label><input type="email" className="w-full p-3 bg-zinc-50 border rounded-xl" value={reportForm.contactEmail} onChange={e => setReportForm({...reportForm, contactEmail: e.target.value})} required /></div>
-          <div><label className="block text-xs font-black mb-1">Images (max 3)</label><input type="file" multiple accept="image/*" onChange={e => setImageFiles(Array.from(e.target.files))} className="w-full" /></div>
-          <button type="submit" className="w-full py-3 bg-zinc-900 text-white rounded-xl font-bold">Submit Report</button>
-        </form>
+  const renderReportIssue = () => {
+    const handleSubmit = async (e) => {
+      e.preventDefault();
+      setSubmittingReport(true);
+      const formData = new FormData();
+      formData.append('title', reportForm.title);
+      formData.append('description', reportForm.description);
+      formData.append('priority', reportForm.priority);
+      formData.append('category', reportForm.category);
+      formData.append('location', reportForm.location);
+      formData.append('contactEmail', reportForm.contactEmail);
+      reportImages.forEach(file => formData.append('attachments', file));
+      
+      try {
+        await createTicket(formData);
+        alert('Ticket created successfully!');
+        setReportForm({ title: '', category: '', description: '', priority: 'MEDIUM', contactEmail: '', location: '' });
+        setReportImages([]);
+        setActiveView('my-tickets');   // Changed to 'my-tickets' (or 'my-reports' if you keep that)
+      } catch (err) {
+        alert('Failed to create ticket.');
+      } finally {
+        setSubmittingReport(false);
+      }
+    };
+
+    
+    return (
+      <div className="bg-white rounded-[2rem] border border-zinc-200 overflow-hidden shadow-sm">
+        <div className="px-8 py-6 border-b border-zinc-100">
+          <h2 className="text-xl font-black text-zinc-900 flex items-center gap-2">
+            <PlusCircle size={20} className="text-zinc-900" /> Report an Issue
+          </h2>
+        </div>
+        <div className="p-8">
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div>
+              <label className="block text-xs font-black mb-1">Title *</label>
+              <input type="text" required value={reportForm.title} onChange={e => setReportForm({...reportForm, title: e.target.value})} className="w-full p-3 bg-zinc-50 border rounded-xl" />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-black mb-1">Category *</label>
+                <select required value={reportForm.category} onChange={e => setReportForm({...reportForm, category: e.target.value})} className="w-full p-3 bg-zinc-50 border rounded-xl">
+                  <option value="">Select</option>
+                  <option>EQUIPMENT</option><option>FACILITY</option><option>NETWORK</option><option>OTHER</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-black mb-1">Priority *</label>
+                <select value={reportForm.priority} onChange={e => setReportForm({...reportForm, priority: e.target.value})} className="w-full p-3 bg-zinc-50 border rounded-xl">
+                  <option>LOW</option><option>MEDIUM</option><option>HIGH</option>
+                </select>
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs font-black mb-1">Location *</label>
+              <input type="text" required value={reportForm.location} onChange={e => setReportForm({...reportForm, location: e.target.value})} className="w-full p-3 bg-zinc-50 border rounded-xl" />
+            </div>
+            <div>
+              <label className="block text-xs font-black mb-1">Description *</label>
+              <textarea rows={3} required value={reportForm.description} onChange={e => setReportForm({...reportForm, description: e.target.value})} className="w-full p-3 bg-zinc-50 border rounded-xl" />
+            </div>
+            <div>
+              <label className="block text-xs font-black mb-1">Contact Email *</label>
+              <input type="email" required value={reportForm.contactEmail} onChange={e => setReportForm({...reportForm, contactEmail: e.target.value})} className="w-full p-3 bg-zinc-50 border rounded-xl" />
+            </div>
+            <div>
+              <label className="block text-xs font-black mb-1">Images (max 3)</label>
+              <input type="file" multiple accept="image/*" onChange={e => setReportImages(Array.from(e.target.files).slice(0,3))} className="w-full" />
+            </div>
+            <button type="submit" disabled={submittingReport} className="w-full py-3 bg-zinc-900 text-white rounded-xl font-bold disabled:opacity-50">
+              {submittingReport ? 'Submitting...' : 'Submit Report'}
+            </button>
+          </form>
+        </div>
       </div>
+    );
+  };
+
+  const renderMyReports = () => (
+    <div className="bg-white rounded-[2rem] border border-zinc-200 overflow-hidden shadow-sm">
+      <div className="px-8 py-6 border-b border-zinc-100">
+        <h2 className="text-xl font-black text-zinc-900 flex items-center gap-2">
+          <Ticket size={20} className="text-blue-600" /> My Reports
+        </h2>
+      </div>
+      {ticketsLoading ? (
+        <div className="p-8 text-center">Loading reports...</div>
+      ) : myTickets.length === 0 ? (
+        <div className="p-12 text-center text-zinc-400">No reports submitted yet.</div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-left">
+            <thead className="bg-zinc-50/50 text-zinc-400 text-[10px] font-black uppercase tracking-widest">
+              <tr>
+                <th className="px-8 py-4">ID</th>
+                <th className="px-8 py-4">Title</th>
+                <th className="px-8 py-4">Priority</th>
+                <th className="px-8 py-4">Status</th>
+                <th className="px-8 py-4">Created</th>
+                <th className="px-8 py-4 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-zinc-100">
+              {myTickets.map((ticket) => (
+                <tr key={ticket.id} className="hover:bg-zinc-50/50">
+                  <td className="px-8 py-5 text-sm font-mono">#{ticket.id}</td>
+                  <td className="px-8 py-5 font-medium">{ticket.title}</td>
+                  <td className="px-8 py-5"><PriorityBadge priority={ticket.priority} /></td>
+                  <td className="px-8 py-5"><StatusBadge status={ticket.status} /></td>
+                  <td className="px-8 py-5 text-sm text-zinc-500">{new Date(ticket.createdAt).toLocaleDateString()}</td>
+                  <td className="px-8 py-5 text-right">
+                    <button
+                      onClick={() => fetchTicketDetails(ticket.id)}   // ✅ Now calls the same function
+                      className="px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold"
+                    >
+                      View
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* ✅ Reuse the same modal – it's already defined in renderMyTickets but we must move it to the main component */}
+      {/* For now, we duplicate the modal here (quick fix). But better to move it out. */}
+      {ticketDetailsOpen && selectedTicket && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
+          <div className="absolute inset-0 bg-zinc-900/60 backdrop-blur-sm" onClick={() => setTicketDetailsOpen(false)} />
+          <div className="relative w-full max-w-2xl bg-white rounded-[2.5rem] shadow-2xl overflow-hidden max-h-[90vh] overflow-y-auto">
+            <div className="p-8">
+              <div className="flex justify-between items-start mb-4">
+                <h3 className="text-2xl font-black">#{selectedTicket.id} - {selectedTicket.title}</h3>
+                <button onClick={() => setTicketDetailsOpen(false)} className="p-2 text-zinc-400 hover:text-zinc-600"><X size={20} /></button>
+              </div>
+              <div className="space-y-4">
+                <div><span className="font-bold">Description:</span> {selectedTicket.description}</div>
+                <div><span className="font-bold">Location:</span> {selectedTicket.location}</div>
+                <div><span className="font-bold">Category:</span> {selectedTicket.category}</div>
+                <div><span className="font-bold">Priority:</span> <PriorityBadge priority={selectedTicket.priority} /></div>
+                <div><span className="font-bold">Status:</span> <StatusBadge status={selectedTicket.status} /></div>
+                {selectedTicket.assignedTechnician && <div><span className="font-bold">Assigned To:</span> {selectedTicket.assignedTechnician.name}</div>}
+                {selectedTicket.attachments?.length > 0 && (
+                  <div><span className="font-bold">Attachments:</span> 
+                  {selectedTicket.attachments.map((att, i) => <a key={i} href={att.fileUrl} target="_blank" rel="noopener noreferrer" className="block text-blue-600 underline">📎 {att.fileName}</a>)}</div>
+                  )}
+                <div className="mt-6">
+                  <h4 className="font-bold mb-2">Comments</h4>
+                  <div className="space-y-2 max-h-60 overflow-y-auto mb-4">
+                    {selectedTicket.comments?.length ? selectedTicket.comments.map(c => (
+                      <div key={c.id} className="bg-zinc-50 p-3 rounded-xl">
+                        <div className="text-xs font-bold">{c.user.name} <span className="text-zinc-400">{new Date(c.createdAt).toLocaleString()}</span></div>
+                        <div className="text-sm mt-1">{c.text}</div>
+                      </div>
+                    )) : <div className="text-zinc-400 text-sm">No comments yet.</div>}
+                  </div>
+                  <div className="flex gap-2">
+                    <textarea value={commentText} onChange={e => setCommentText(e.target.value)} className="flex-1 p-3 bg-zinc-50 border rounded-xl text-sm" rows={2} placeholder="Add a comment..." />
+                    <button onClick={() => addComment(selectedTicket.id, commentText)} disabled={submittingComment || !commentText.trim()} className="px-4 py-2 bg-blue-600 text-white rounded-xl font-bold disabled:opacity-50">Post</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  const renderMyTickets = () => (
+  <div className="bg-white rounded-[2rem] border border-zinc-200 overflow-hidden shadow-sm">
+      <div className="px-8 py-6 border-b border-zinc-100">
+        <h2 className="text-xl font-black text-zinc-900 flex items-center gap-2">
+          <Ticket size={20} className="text-blue-600" /> My Tickets
+        </h2>
+      </div>
+      {ticketsLoading ? (
+        <div className="p-8 text-center">Loading...</div>
+      ) : myTickets.length === 0 ? (
+        <div className="p-12 text-center text-zinc-400">No tickets reported yet.</div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-left">
+            <thead className="bg-zinc-50/50 text-zinc-400 text-[10px] font-black uppercase tracking-widest">
+              <tr><th className="px-8 py-4">ID</th><th className="px-8 py-4">Title</th><th className="px-8 py-4">Priority</th><th className="px-8 py-4">Status</th><th className="px-8 py-4">Created</th><th className="px-8 py-4 text-right">Actions</th></tr>
+            </thead>
+            <tbody className="divide-y divide-zinc-100">
+              {myTickets.map(ticket => (
+                <tr key={ticket.id} className="hover:bg-zinc-50/50">
+                  <td className="px-8 py-5 text-sm font-mono">#{ticket.id}</td>
+                  <td className="px-8 py-5 font-medium">{ticket.title}</td>
+                  <td className="px-8 py-5"><PriorityBadge priority={ticket.priority} /></td>
+                  <td className="px-8 py-5"><StatusBadge status={ticket.status} /></td>
+                  <td className="px-8 py-5 text-sm text-zinc-500">{new Date(ticket.createdAt).toLocaleDateString()}</td>
+                  <td className="px-8 py-5 text-right">
+                    <button onClick={() => fetchTicketDetails(ticket.id)} className="px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold">View</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Ticket Details Modal */}
+      {ticketDetailsOpen && selectedTicket && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
+          <div className="absolute inset-0 bg-zinc-900/60 backdrop-blur-sm" onClick={() => setTicketDetailsOpen(false)} />
+          <div className="relative w-full max-w-2xl bg-white rounded-[2.5rem] shadow-2xl overflow-hidden max-h-[90vh] overflow-y-auto">
+            <div className="p-8">
+              <div className="flex justify-between items-start mb-4">
+                <h3 className="text-2xl font-black">#{selectedTicket.id} - {selectedTicket.title}</h3>
+                <button onClick={() => setTicketDetailsOpen(false)} className="p-2 text-zinc-400 hover:text-zinc-600"><X size={20} /></button>
+              </div>
+              <div className="space-y-4">
+                <div><span className="font-bold">Description:</span> {selectedTicket.description}</div>
+                <div><span className="font-bold">Location:</span> {selectedTicket.location}</div>
+                <div><span className="font-bold">Category:</span> {selectedTicket.category}</div>
+                <div><span className="font-bold">Priority:</span> <PriorityBadge priority={selectedTicket.priority} /></div>
+                <div><span className="font-bold">Status:</span> <StatusBadge status={selectedTicket.status} /></div>
+                {selectedTicket.assignedTechnician && <div><span className="font-bold">Assigned To:</span> {selectedTicket.assignedTechnician.name}</div>}
+                {selectedTicket.attachments?.length > 0 && (
+                  <div><span className="font-bold">Attachments:</span> {selectedTicket.attachments.map((att, i) => <a key={i} href={att.fileUrl} target="_blank" rel="noopener noreferrer" className="block text-blue-600 underline">📎 {att.fileName}</a>)}</div>
+                )}
+                <div className="mt-6">
+                  <h4 className="font-bold mb-2">Comments</h4>
+                  <div className="space-y-2 max-h-60 overflow-y-auto mb-4">
+                    {selectedTicket.comments?.length ? selectedTicket.comments.map(c => (
+                      <div key={c.id} className="bg-zinc-50 p-3 rounded-xl">
+                        <div className="text-xs font-bold">{c.user.name} <span className="text-zinc-400">{new Date(c.createdAt).toLocaleString()}</span></div>
+                        <div className="text-sm mt-1">{c.text}</div>
+                      </div>
+                    )) : <div className="text-zinc-400 text-sm">No comments yet.</div>}
+                  </div>
+                  <div className="flex gap-2">
+                    <textarea value={commentText} onChange={e => setCommentText(e.target.value)} className="flex-1 p-3 bg-zinc-50 border rounded-xl text-sm" rows={2} placeholder="Add a comment..." />
+                    <button onClick={() => addComment(selectedTicket.id, commentText)} disabled={submittingComment || !commentText.trim()} className="px-4 py-2 bg-blue-600 text-white rounded-xl font-bold disabled:opacity-50">Post</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 
@@ -355,6 +660,7 @@ export default function UserDashboard() {
               { id: 'browse-book', label: 'Browse & Book', icon: Search },
               { id: 'my-bookings', label: 'My Bookings', icon: CalendarDays },
               { id: 'report-issue', label: 'Report Issue', icon: PlusCircle },
+              { id: 'my-reports', label: 'My Reports', icon: Ticket },
             ].map((item) => (
               <button key={item.id} onClick={() => setActiveView(item.id)} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${activeView === item.id ? 'bg-blue-50 text-blue-700' : 'text-zinc-600 hover:bg-zinc-100'}`}>
                 <item.icon size={18} /> {item.label}
@@ -370,6 +676,7 @@ export default function UserDashboard() {
               {activeView === 'browse-book' && renderBrowseBook()}
               {activeView === 'my-bookings' && renderMyBookings()}
               {activeView === 'report-issue' && renderReportIssue()}
+              {activeView === 'my-reports' && renderMyReports()}
             </motion.div>
           </AnimatePresence>
         </main>
