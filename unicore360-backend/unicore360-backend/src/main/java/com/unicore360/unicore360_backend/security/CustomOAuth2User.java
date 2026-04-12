@@ -4,6 +4,7 @@ import com.unicore360.unicore360_backend.model.Role;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.oauth2.core.user.OAuth2User;
+
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Map;
@@ -11,10 +12,12 @@ import java.util.Map;
 public class CustomOAuth2User implements OAuth2User {
     private final OAuth2User oAuth2User;
     private final Role role;
+    private final Long userId;  // added
 
-    public CustomOAuth2User(OAuth2User oAuth2User, Role role) {
+    public CustomOAuth2User(OAuth2User oAuth2User, Role role, Long userId) {
         this.oAuth2User = oAuth2User;
         this.role = role;
+        this.userId = userId;
     }
 
     @Override
@@ -38,5 +41,9 @@ public class CustomOAuth2User implements OAuth2User {
 
     public Role getRole() {
         return role;
+    }
+
+    public Long getUserId() {
+        return userId;
     }
 }

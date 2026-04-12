@@ -14,6 +14,7 @@ public class BookingService {
 
     private final BookingRepository bookingRepository;
     private final ResourceRepository resourceRepository;
+    private final NotificationService notificationService;  // added
 
     public List<Booking> getUserBookings(User user) {
         return bookingRepository.findByUserOrderByBookingDateDesc(user);
@@ -36,10 +37,10 @@ public class BookingService {
         Booking booking = new Booking();
         booking.setUser(user);
         booking.setResource(resource);
-        booking.setBookingDate(date);        // ✅ now exists
+        booking.setBookingDate(date);
         booking.setTimeRange(timeRange);
         booking.setPurpose(purpose);
-        booking.setExpectedAttendees(attendees);  // ✅ now exists
+        booking.setExpectedAttendees(attendees);
         booking.setStatus(BookingStatus.PENDING);
         return bookingRepository.save(booking);
     }
@@ -54,15 +55,20 @@ public class BookingService {
             throw new RuntimeException("Booking cannot be cancelled in its current state");
         }
         booking.setStatus(BookingStatus.CANCELLED);
-        return bookingRepository.save(booking);
+        Booking saved = bookingRepository.save(booking);
+
+        // Notify user about cancellation
+        notificationService.sendBookingNotification(user,
+                "Booking Cancelled",
+                "Your booking for " + booking.getResource().getName() + " on " + booking.getBookingDate() + " has been cancelled.",
+                booking.getId());
+        return saved;
     }
 
-    // Get all bookings (for admin)
     public List<Booking> getAllBookings() {
-        return bookingRepository.findAllByOrderByBookingDateDesc(); // define this method in repository
+        return bookingRepository.findAllByOrderByBookingDateDesc();
     }
 
-    // Approve a booking
     public Booking approveBooking(Long id) {
         Booking booking = bookingRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Booking not found"));
@@ -70,10 +76,16 @@ public class BookingService {
             throw new RuntimeException("Only pending bookings can be approved");
         }
         booking.setStatus(BookingStatus.APPROVED);
-        return bookingRepository.save(booking);
+        Booking saved = bookingRepository.save(booking);
+
+        // Notify the user who made the booking
+        notificationService.sendBookingNotification(booking.getUser(),
+                "Booking Approved",
+                "Your booking for " + booking.getResource().getName() + " on " + booking.getBookingDate() + " has been approved.",
+                booking.getId());
+        return saved;
     }
 
-    // Reject a booking with reason
     public Booking rejectBooking(Long id, String reason) {
         Booking booking = bookingRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Booking not found"));
@@ -81,9 +93,17 @@ public class BookingService {
             throw new RuntimeException("Only pending bookings can be rejected");
         }
         booking.setStatus(BookingStatus.REJECTED);
-        // Optional: add rejectionReason field to Booking entity and set it here
-        return bookingRepository.save(booking);
+        // Optionally store rejection reason in a separate field if you have one
+        Booking saved = bookingRepository.save(booking);
+
+        // Notify the user who made the booking
+        notificationService.sendBookingNotification(booking.getUser(),
+                "Booking Rejected",
+                "Your booking for " + booking.getResource().getName() + " on " + booking.getBookingDate() + " has been rejected. Reason: " + reason,
+                booking.getId());
+        return saved;
     }
+
     private boolean timeRangeOverlap(String existing, String newRange) {
         try {
             String[] e = existing.split("-");

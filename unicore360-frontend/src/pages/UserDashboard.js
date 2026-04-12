@@ -24,6 +24,7 @@ import {
   Upload
 } from 'lucide-react';
 import api from '../services/api';
+import NotificationPanel from '../components/NotificationPanel';
 
 const Logo = ({ className = "" }) => (
   <div className={`flex items-center gap-3 ${className}`}>
@@ -115,6 +116,7 @@ export default function UserDashboard() {
   const [submittingReport, setSubmittingReport] = useState(false);
 
   const name = localStorage.getItem('name') || 'User';
+  const userId = parseInt(localStorage.getItem('userId')) || null;
 
   useEffect(() => {
     const role = localStorage.getItem('role');
@@ -640,7 +642,13 @@ export default function UserDashboard() {
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
           <Logo />
           <div className="flex items-center gap-6">
-            <button className="relative p-2 text-zinc-500 hover:text-blue-600"><Bell size={20} /><span className="absolute top-1.5 right-1.5 w-4 h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-white">{unreadCount}</span></button>
+            {userId ? (
+                <NotificationPanel userId={userId} />
+              ) : (
+                <button className="relative p-2 text-zinc-500 hover:text-blue-600">
+                  <Bell size={20} />
+                </button>
+              )}
             <div className="h-8 w-px bg-zinc-200" />
             <div className="flex items-center gap-3">
               <div className="text-right hidden sm:block"><div className="text-sm font-bold text-zinc-900">{name}</div><div className="text-[10px] font-bold text-blue-600 uppercase">User Dashboard</div></div>

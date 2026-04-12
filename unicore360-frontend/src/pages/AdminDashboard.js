@@ -25,6 +25,7 @@ import {
   LayoutDashboard
 } from 'lucide-react';
 import api from '../services/api';
+import NotificationPanel from '../components/NotificationPanel';
 
 // ---------- Logo Component ----------
 const Logo = ({ className = "" }) => (
@@ -47,7 +48,9 @@ const Logo = ({ className = "" }) => (
     </div>
   </div>
 );
-
+// AdminDashboard.js
+const storedId = localStorage.getItem('userId');
+const userId = storedId ? parseInt(storedId) : null;
 // ---------- StatCard ----------
 const StatCard = ({ label, value, icon: Icon, colorClass, trend }) => (
   <div className="bg-white p-6 rounded-[2rem] border border-zinc-200 shadow-sm group hover:border-blue-600 transition-all">
@@ -111,6 +114,7 @@ export default function AdminDashboard() {
   const [usersLoading, setUsersLoading] = useState(false);
   const navigate = useNavigate();
   const username  = localStorage.getItem('name') || 'Admin';
+  const userId = parseInt(localStorage.getItem('userId')) || null;
   // Resources state
   const [resources, setResources] = useState([]);
   const [resourcesLoading, setResourcesLoading] = useState(false);
@@ -252,11 +256,17 @@ export default function AdminDashboard() {
 
   const assignTechnician = async (ticketId, technicianId) => {
     try {
-      await api.put(`/admin/tickets/${ticketId}/assign`, { technicianId });
+      const response = await api.put(`/admin/tickets/${ticketId}/assign`, { technicianId });
+      console.log('Assignment success:', response.data);
       await fetchTickets();
       setAssignDialog({ open: false, ticketId: null, technicianId: '' });
     } catch (err) {
-      alert('Assignment failed');
+      console.error('Assignment failed:', {
+        status: err.response?.status,
+        data: err.response?.data,
+        message: err.message
+      });
+      alert(`Assignment failed: ${err.response?.data?.message || err.message}`);
     }
   };
 
@@ -1068,7 +1078,13 @@ const renderTicketsPanel = () => (
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
           <Logo />
           <div className="flex items-center gap-6">
-            <button className="relative p-2 text-zinc-500 hover:text-blue-600"><Bell size={20} /><span className="absolute top-1.5 right-1.5 w-4 h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-white">{unreadCount}</span></button>
+            {userId ? (
+                <NotificationPanel userId={userId} />
+              ) : (
+                <button className="relative p-2 text-zinc-500 hover:text-blue-600">
+                  <Bell size={20} />
+                </button>
+              )}
             <div className="h-8 w-px bg-zinc-200" />
             <div className="flex items-center gap-3">
               <div className="text-right hidden sm:block"><div className="text-sm font-bold text-zinc-900">{username}</div><div className="text-[10px] font-bold text-zinc-400 uppercase">System Administrator</div></div>

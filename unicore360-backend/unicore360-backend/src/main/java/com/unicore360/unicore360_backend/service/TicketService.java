@@ -27,7 +27,7 @@ public class TicketService {
     private final TicketCommentRepository commentRepository;
     private final TicketAttachmentRepository attachmentRepository;
     private final UserRepository userRepository;
-    // REMOVED: private final NotificationService notificationService;
+    private final NotificationService notificationService;  // added
 
     @Value("${ticket.upload.dir:uploads/tickets}")
     private String uploadDir;
@@ -75,6 +75,8 @@ public class TicketService {
             }
         }
 
+        // Notify admin? (optional) – but requirement only says users receive notifications.
+        // You could optionally notify assigned technician if any, but none yet.
         return convertToDTO(ticket);
     }
 
@@ -90,7 +92,18 @@ public class TicketService {
         ticket.setAssignedTechnician(technician);
         ticket = ticketRepository.save(ticket);
 
-        // Notification removed
+        // Notify the technician that they've been assigned
+        notificationService.sendTicketNotification(technician,
+                "New Ticket Assigned",
+                "You have been assigned to ticket #" + ticketId + ": " + ticket.getTitle(),
+                ticketId);
+
+        // Also notify the ticket owner that a technician has been assigned
+        notificationService.sendTicketNotification(ticket.getUser(),
+                "Technician Assigned",
+                "A technician has been assigned to your ticket #" + ticketId,
+                ticketId);
+
         return convertToDTO(ticket);
     }
 
@@ -104,10 +117,25 @@ public class TicketService {
             throw new RuntimeException("Not authorized to update this ticket");
         }
 
+        TicketStatus oldStatus = ticket.getStatus();
         ticket.setStatus(newStatus);
         ticket = ticketRepository.save(ticket);
 
-        // Notification removed
+        // Notify the ticket owner about status change
+        notificationService.sendTicketNotification(ticket.getUser(),
+                "Ticket Status Updated",
+                "Your ticket #" + ticketId + " status changed from " + oldStatus + " to " + newStatus,
+                ticketId);
+
+        // If actor is technician, also notify the owner? Already done above.
+        // Optionally notify the assigned technician if status changed by admin.
+        if (actor.getRole() == Role.ADMIN && ticket.getAssignedTechnician() != null) {
+            notificationService.sendTicketNotification(ticket.getAssignedTechnician(),
+                    "Ticket Status Updated",
+                    "Ticket #" + ticketId + " status changed to " + newStatus + " by admin.",
+                    ticketId);
+        }
+
         return convertToDTO(ticket);
     }
 
@@ -119,7 +147,11 @@ public class TicketService {
         ticket.setRejectionReason(reason);
         ticket = ticketRepository.save(ticket);
 
-        // Notification removed
+        notificationService.sendTicketNotification(ticket.getUser(),
+                "Ticket Rejected",
+                "Your ticket #" + ticketId + " has been rejected. Reason: " + reason,
+                ticketId);
+
         return convertToDTO(ticket);
     }
 
@@ -162,7 +194,22 @@ public class TicketService {
         comment.setUser(user);
         comment = commentRepository.save(comment);
 
-        // Notifications removed
+        // Notify ticket owner if commenter is not owner
+        if (!ticket.getUser().getId().equals(user.getId())) {
+            notificationService.sendCommentNotification(ticket.getUser(),
+                    "New comment on ticket #" + ticketId,
+                    user.getName() + " commented: " + (text.length() > 50 ? text.substring(0, 50) + "..." : text),
+                    ticketId);
+        }
+
+        // Notify assigned technician if exists and not the commenter
+        if (ticket.getAssignedTechnician() != null && !ticket.getAssignedTechnician().getId().equals(user.getId())) {
+            notificationService.sendCommentNotification(ticket.getAssignedTechnician(),
+                    "New comment on ticket #" + ticketId,
+                    user.getName() + " commented: " + (text.length() > 50 ? text.substring(0, 50) + "..." : text),
+                    ticketId);
+        }
+
         return convertToCommentDTO(comment);
     }
 
@@ -176,7 +223,7 @@ public class TicketService {
         commentRepository.delete(comment);
     }
 
-    // Helper conversion methods (ensure DTOs have @Builder or modify accordingly)
+    // Helper conversion methods (ensure DTOs have @Builder)
     private TicketResponseDTO convertToDTO(Ticket ticket) {
         return TicketResponseDTO.builder()
                 .id(ticket.getId())

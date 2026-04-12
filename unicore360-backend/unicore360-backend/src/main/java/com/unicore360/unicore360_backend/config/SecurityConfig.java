@@ -55,7 +55,7 @@ public class SecurityConfig {
 
                         // admin only
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
-
+                        .requestMatchers("/notifications/**").authenticated()
                         // everything else
                         .anyRequest().authenticated()
                 )
@@ -78,10 +78,12 @@ public class SecurityConfig {
             String email = oAuth2User.getEmail();
             String name = oAuth2User.getName();
             String role = oAuth2User.getRole().name();
+            Long userId = oAuth2User.getUserId();   // ✅ get userId from custom user
 
-            String token = jwtTokenProvider.generateToken(email, name, oAuth2User.getRole());
+            // ✅ Generate token with userId
+            String token = jwtTokenProvider.generateToken(email, name, oAuth2User.getRole(), userId);
 
-            System.out.println("Login Successful for: " + email + " | Assigned Role: " + role);
+            System.out.println("Login Successful for: " + email + " | Assigned Role: " + role + " | userId: " + userId);
 
             String redirectUrl = "http://localhost:3000/oauth2/redirect?token=" + token;
             response.sendRedirect(redirectUrl);
@@ -93,7 +95,6 @@ public class SecurityConfig {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOrigins(Arrays.asList("http://localhost:3000"));
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        // 3. Explicitly allow Authorization header
         configuration.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "Accept"));
         configuration.setAllowCredentials(true);
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

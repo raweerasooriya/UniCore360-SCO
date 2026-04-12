@@ -33,10 +33,8 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
             throw new OAuth2AuthenticationException("Email not found from Google");
         }
 
-        // Find existing user or create new
         User user = userRepository.findByEmail(email).orElse(null);
         if (user == null) {
-            // New user – assign role from config file (once)
             Role role = roleMappingService.getRoleForEmail(email);
             user = new User();
             user.setEmail(email);
@@ -45,15 +43,13 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
             user.setCreatedAt(java.time.LocalDateTime.now());
             log.info("Creating new user: {} with role {}", email, role);
         } else {
-            // Existing user – preserve the role that is already in the database
             log.info("Existing user login: {} – keeping existing role {}", email, user.getRole());
         }
 
-        // Always update name and avatar (these can change)
         user.setName(name);
         user.setAvatarUrl(avatarUrl);
-        userRepository.save(user);
+        user = userRepository.save(user);  // capture saved user to get ID if new
 
-        return new CustomOAuth2User(oAuth2User, user.getRole());
+        return new CustomOAuth2User(oAuth2User, user.getRole(), user.getId());
     }
 }

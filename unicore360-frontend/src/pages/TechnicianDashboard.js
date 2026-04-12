@@ -26,6 +26,7 @@ import {
   MessageSquare
 } from 'lucide-react';
 import api from '../services/api';
+import NotificationPanel from '../components/NotificationPanel';
 
 const Logo = ({ className = "" }) => (
   <div className={`flex items-center gap-3 ${className}`}>
@@ -107,6 +108,7 @@ export default function TechnicianDashboard() {
   
   const navigate = useNavigate();
   const username = localStorage.getItem('name') || 'Technician';
+  const userId = parseInt(localStorage.getItem('userId')) || null;
 
   useEffect(() => {
     const role = localStorage.getItem('role');
@@ -427,14 +429,13 @@ export default function TechnicianDashboard() {
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
           <Logo />
           <div className="flex items-center gap-6">
-            <button className="relative p-2 text-zinc-500 hover:text-amber-600 transition-colors">
-              <Bell size={20} />
-              {unreadCount > 0 && (
-                <span className="absolute top-1.5 right-1.5 w-4 h-4 bg-red-500 text-white text-[10px] font-bold flex items-center justify-center rounded-full border-2 border-white">
-                  {unreadCount}
-                </span>
+              {userId ? (
+                <NotificationPanel userId={userId} />
+              ) : (
+                <button className="relative p-2 text-zinc-500 hover:text-amber-600 transition-colors">
+                  <Bell size={20} />
+                </button>
               )}
-            </button>
             <div className="h-8 w-px bg-zinc-200" />
             <div className="flex items-center gap-3">
               <div className="text-right hidden sm:block">

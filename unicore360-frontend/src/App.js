@@ -18,30 +18,29 @@ const OAuth2RedirectHandler = () => {
         if (processed) return;
 
         const params = new URLSearchParams(location.search);
-        const token = params.get('token');
+const token = params.get('token');
 
-        if (token) {
-            try {
-                // Decode the JWT token to get role and email
-                const decoded = jwtDecode(token);   // <-- FIXED: use jwtDecode
-                const email = decoded.sub;
-                const role = decoded.role;
-                const name = decoded.name;               // 👈 extract name
-                localStorage.setItem('name', name);
+    if (token) {
+        try {
+            const decoded = jwtDecode(token);
+            const email = decoded.sub;
+            const role = decoded.role;
+            const name = decoded.name;
+            const userId = decoded.userId;   // <-- ADD THIS LINE
 
+            localStorage.setItem('token', token);
+            localStorage.setItem('email', email);
+            localStorage.setItem('role', role);
+            localStorage.setItem('name', name);
+            localStorage.setItem('userId', userId);   // <-- ADD THIS LINE
 
-                console.log('OAuth2RedirectHandler: decoded token', { email, role });
+            setProcessed(true);
+            window.location.replace('/dashboard');
+        } catch (error) {
+            console.error('Failed to decode token', error);
+            window.location.replace('/login');
+        }
 
-                localStorage.setItem('token', token);
-                localStorage.setItem('email', email);
-                localStorage.setItem('role', role);
-
-                setProcessed(true);
-                window.location.replace('/dashboard');
-            } catch (error) {
-                console.error('Failed to decode token', error);
-                window.location.replace('/login');
-            }
         } else {
             console.warn('No token found in redirect URL');
             window.location.replace('/login');
