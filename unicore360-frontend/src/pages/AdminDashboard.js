@@ -77,6 +77,7 @@ const StatusBadge = ({ status }) => {
     'REJECTED': 'bg-red-50 text-red-700 border-red-100',
     'OPEN': 'bg-red-50 text-red-700 border-red-100',
     'INACTIVE': 'bg-zinc-50 text-zinc-500 border-zinc-100',
+    'OUT_OF_SERVICE': 'bg-red-50 text-red-700 border-red-100',
   };
   return (
     <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border uppercase tracking-tighter ${styles[status] || 'bg-zinc-50 text-zinc-500 border-zinc-100'}`}>
@@ -96,13 +97,66 @@ export default function AdminDashboard() {
   const [usersLoading, setUsersLoading] = useState(false);
   const navigate = useNavigate();
   const username  = localStorage.getItem('name') || 'Admin';
+  // Resources state
+  const [resources, setResources] = useState([]);
+  const [resourcesLoading, setResourcesLoading] = useState(false);
+  const [resourceDialog, setResourceDialog] = useState({ open: false, editing: null }); // editing holds resource object or null
+  const [resourceForm, setResourceForm] = useState({ name: '', type: 'ROOM', capacity: '', location: '', status: 'ACTIVE' });
+  const [searchFilters, setSearchFilters] = useState({ name: '', type: '', location: '', status: '' });
+
+  // Fetch resources when activeView === 'resources'
+  useEffect(() => {
+      if (activeView === 'resources') {
+          fetchResources();
+      }
+  }, [activeView]);
+
+  const fetchResources = async () => {
+      setResourcesLoading(true);
+      try {
+          const response = await api.get('/admin/resources');
+          setResources(response.data);
+      } catch (err) {
+          console.error('Failed to fetch resources', err);
+      } finally {
+          setResourcesLoading(false);
+      }
+  };
+
+  const createResource = async (resource) => {
+      try {
+          const response = await api.post('/admin/resources', resource);
+          await fetchResources();
+          return response.data;
+      } catch (err) {
+          console.error('Failed to create resource', err);
+          throw err;
+      }
+  };
+
+  const updateResource = async (id, resource) => {
+      try {
+          const response = await api.put(`/admin/resources/${id}`, resource);
+          await fetchResources();
+          return response.data;
+      } catch (err) {
+          console.error('Failed to update resource', err);
+          throw err;
+      }
+  };
+
+  const deleteResource = async (id) => {
+      if (window.confirm('Are you sure you want to delete this resource?')) {
+          try {
+              await api.delete(`/admin/resources/${id}`);
+              await fetchResources();
+          } catch (err) {
+              console.error('Failed to delete resource', err);
+          }
+      }
+  };
 
   // ---------- Mock Data (Resources, Bookings, Tickets - keep as before) ----------
-  const [resources, setResources] = useState([
-    { id: 1, name: 'Conference Room A', type: 'ROOM', capacity: 20, location: 'Building 1', status: 'ACTIVE' },
-    { id: 2, name: 'Lab 101', type: 'LAB', capacity: 30, location: 'Building 2', status: 'ACTIVE' },
-    { id: 3, name: 'Projector', type: 'EQUIPMENT', capacity: null, location: 'AV Room', status: 'MAINTENANCE' },
-  ]);
 
   const [bookings, setBookings] = useState([
     { id: 1, user: 'John Student', resource: 'Conference Room A', date: '2026-03-15', time: '10:00-12:00', status: 'PENDING' },
@@ -192,54 +246,192 @@ export default function AdminDashboard() {
   );
 
   // ---------- Panel Renderers ----------
-  const renderResourcesPanel = () => (
-    <div className="bg-white rounded-[2rem] border border-zinc-200 overflow-hidden shadow-sm">
-      <div className="px-8 py-6 flex justify-between items-center border-b border-zinc-100">
-        <div className="flex items-center gap-2">
-          <Building2 size={20} className="text-blue-600" />
-          <h2 className="text-xl font-black text-zinc-900">Resources Management</h2>
-        </div>
-        <div className="flex gap-3">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" size={14} />
-            <input
-              type="text"
-              placeholder="Search resources..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 pr-4 py-2 bg-zinc-50 border border-zinc-100 rounded-full text-xs outline-none focus:ring-2 focus:ring-blue-600/20 w-64"
-            />
+  const renderResourcesPanel = () => {
+      // Client-side filtering based on searchFilters (or call search endpoint)
+      const filteredResources = resources.filter(r => {
+          const matchName = !searchFilters.name || r.name.toLowerCase().includes(searchFilters.name.toLowerCase());
+          const matchType = !searchFilters.type || r.type === searchFilters.type;
+          const matchLocation = !searchFilters.location || r.location.toLowerCase().includes(searchFilters.location.toLowerCase());
+          const matchStatus = !searchFilters.status || r.status === searchFilters.status;
+          return matchName && matchType && matchLocation && matchStatus;
+      });
+
+      const openCreateDialog = () => {
+          setResourceForm({ name: '', type: 'ROOM', capacity: '', location: '', status: 'ACTIVE' });
+          setResourceDialog({ open: true, editing: null });
+      };
+
+      const openEditDialog = (resource) => {
+          setResourceForm({
+              name: resource.name,
+              type: resource.type,
+              capacity: resource.capacity || '',
+              location: resource.location,
+              status: resource.status
+          });
+          setResourceDialog({ open: true, editing: resource });
+      };
+
+      const handleSaveResource = async () => {
+          try {
+              const payload = {
+                  ...resourceForm,
+                  capacity: resourceForm.capacity ? parseInt(resourceForm.capacity) : null
+              };
+              if (resourceDialog.editing) {
+                  await updateResource(resourceDialog.editing.id, payload);
+              } else {
+                  await createResource(payload);
+              }
+              setResourceDialog({ open: false, editing: null });
+          } catch (err) {
+              alert('Failed to save resource');
+          }
+      };
+
+      return (
+          <div className="bg-white rounded-[2rem] border border-zinc-200 overflow-hidden shadow-sm">
+              {/* Header with search/filter and Add button */}
+              <div className="px-8 py-6 border-b border-zinc-100 flex flex-wrap gap-4 items-center justify-between">
+                  <h2 className="text-xl font-black text-zinc-900 flex items-center gap-2">
+                      <Building2 size={20} className="text-blue-600" />
+                      Resources Management
+                  </h2>
+                  <div className="flex flex-wrap gap-2">
+                      <input
+                          type="text"
+                          placeholder="Name"
+                          value={searchFilters.name}
+                          onChange={(e) => setSearchFilters({...searchFilters, name: e.target.value})}
+                          className="px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-xs w-32"
+                      />
+                      <select
+                          value={searchFilters.type}
+                          onChange={(e) => setSearchFilters({...searchFilters, type: e.target.value})}
+                          className="px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-xs"
+                      >
+                          <option value="">All Types</option>
+                          <option value="ROOM">Room</option>
+                          <option value="LAB">Lab</option>
+                          <option value="EQUIPMENT">Equipment</option>
+                      </select>
+                      <input
+                          type="text"
+                          placeholder="Location"
+                          value={searchFilters.location}
+                          onChange={(e) => setSearchFilters({...searchFilters, location: e.target.value})}
+                          className="px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-xs w-32"
+                      />
+                      <select
+                          value={searchFilters.status}
+                          onChange={(e) => setSearchFilters({...searchFilters, status: e.target.value})}
+                          className="px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-xs"
+                      >
+                          <option value="">All Status</option>
+                          <option value="ACTIVE">Active</option>
+                          <option value="OUT_OF_SERVICE">Out of Service</option>
+                      </select>
+                      <button
+                          onClick={openCreateDialog}
+                          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold hover:bg-blue-700"
+                      >
+                          <Plus size={16} /> Add Resource
+                      </button>
+                  </div>
+              </div>
+              {resourcesLoading ? (
+                  <div className="p-8 text-center">Loading resources...</div>
+              ) : (
+                  <div className="overflow-x-auto">
+                      <table className="w-full text-left">
+                          <thead className="bg-zinc-50/50 text-zinc-400 text-[10px] font-black uppercase tracking-widest">
+                              <tr>
+                                  <th className="px-8 py-4">Name & Type</th>
+                                  <th className="px-8 py-4">Location</th>
+                                  <th className="px-8 py-4">Capacity</th>
+                                  <th className="px-8 py-4">Status</th>
+                                  <th className="px-8 py-4 text-right">Actions</th>
+                              </tr>
+                          </thead>
+                          <tbody className="divide-y divide-zinc-100">
+                              {filteredResources.map((r) => (
+                                  <tr key={r.id} className="hover:bg-zinc-50/50 transition-colors">
+                                      <td className="px-8 py-5">
+                                          <div className="font-bold text-zinc-900">{r.name}</div>
+                                          <div className="text-[10px] font-bold text-zinc-400 uppercase tracking-tighter">{r.type}</div>
+                                      </td>
+                                      <td className="px-8 py-5 text-sm text-zinc-500 font-medium">{r.location}</td>
+                                      <td className="px-8 py-5 text-sm text-zinc-500 font-medium">{r.capacity || '-'}</td>
+                                      <td className="px-8 py-5"><StatusBadge status={r.status} /></td>
+                                      <td className="px-8 py-5 text-right">
+                                          <div className="flex justify-end gap-2">
+                                              <button onClick={() => openEditDialog(r)} className="p-2 text-zinc-400 hover:text-blue-600 transition-colors"><Edit2 size={16} /></button>
+                                              <button onClick={() => deleteResource(r.id)} className="p-2 text-zinc-400 hover:text-red-500 transition-colors"><Trash2 size={16} /></button>
+                                          </div>
+                                      </td>
+                                  </tr>
+                              ))}
+                              {filteredResources.length === 0 && (
+                                  <tr><td colSpan="5" className="px-8 py-12 text-center text-zinc-400">No resources found</td></tr>
+                              )}
+                          </tbody>
+                      </table>
+                  </div>
+              )}
+              {/* Add/Edit Dialog */}
+              <AnimatePresence>
+                  {resourceDialog.open && (
+                      <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
+                          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setResourceDialog({ open: false, editing: null })} className="absolute inset-0 bg-zinc-900/60 backdrop-blur-sm" />
+                          <motion.div initial={{ opacity: 0, scale: 0.9, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.9, y: 20 }} className="relative w-full max-w-lg bg-white rounded-[2.5rem] shadow-2xl overflow-hidden">
+                              <div className="p-8 md:p-10">
+                                  <div className="flex items-center gap-4 mb-8">
+                                      <div className="w-12 h-12 rounded-2xl bg-blue-600 flex items-center justify-center text-white"><Building2 size={24} /></div>
+                                      <div><h3 className="text-2xl font-black text-zinc-900">{resourceDialog.editing ? 'Edit Resource' : 'Add Resource'}</h3><p className="text-zinc-500 text-sm">{resourceDialog.editing ? 'Update resource details' : 'Create a new bookable campus asset'}</p></div>
+                                  </div>
+                                  <form className="space-y-6" onSubmit={(e) => { e.preventDefault(); handleSaveResource(); }}>
+                                      <div className="grid grid-cols-2 gap-4">
+                                          <div className="col-span-2">
+                                              <label className="block text-xs font-black text-zinc-400 uppercase tracking-widest mb-2">Resource Name</label>
+                                              <input type="text" value={resourceForm.name} onChange={(e) => setResourceForm({...resourceForm, name: e.target.value})} className="w-full p-4 bg-zinc-50 border border-zinc-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-600/20" placeholder="e.g. Conference Room A" required />
+                                          </div>
+                                          <div>
+                                              <label className="block text-xs font-black text-zinc-400 uppercase tracking-widest mb-2">Type</label>
+                                              <select value={resourceForm.type} onChange={(e) => setResourceForm({...resourceForm, type: e.target.value})} className="w-full p-4 bg-zinc-50 border border-zinc-100 rounded-2xl">
+                                                  <option value="ROOM">Room</option>
+                                                  <option value="LAB">Lab</option>
+                                                  <option value="EQUIPMENT">Equipment</option>
+                                              </select>
+                                          </div>
+                                          <div>
+                                              <label className="block text-xs font-black text-zinc-400 uppercase tracking-widest mb-2">Capacity</label>
+                                              <input type="number" value={resourceForm.capacity} onChange={(e) => setResourceForm({...resourceForm, capacity: e.target.value})} className="w-full p-4 bg-zinc-50 border border-zinc-100 rounded-2xl" placeholder="0 (for equipment leave blank)" />
+                                          </div>
+                                          <div className="col-span-2">
+                                              <label className="block text-xs font-black text-zinc-400 uppercase tracking-widest mb-2">Location</label>
+                                              <input type="text" value={resourceForm.location} onChange={(e) => setResourceForm({...resourceForm, location: e.target.value})} className="w-full p-4 bg-zinc-50 border border-zinc-100 rounded-2xl" placeholder="e.g. Building 1, Floor 2" required />
+                                          </div>
+                                          <div className="col-span-2">
+                                              <label className="block text-xs font-black text-zinc-400 uppercase tracking-widest mb-2">Status</label>
+                                              <select value={resourceForm.status} onChange={(e) => setResourceForm({...resourceForm, status: e.target.value})} className="w-full p-4 bg-zinc-50 border border-zinc-100 rounded-2xl">
+                                                  <option value="ACTIVE">Active</option>
+                                                  <option value="OUT_OF_SERVICE">Out of Service</option>
+                                              </select>
+                                          </div>
+                                      </div>
+                                      <div className="flex gap-3 pt-4">
+                                          <button type="button" onClick={() => setResourceDialog({ open: false, editing: null })} className="flex-1 py-4 bg-zinc-100 text-zinc-600 rounded-2xl font-bold">Cancel</button>
+                                          <button type="submit" className="flex-[2] py-4 bg-blue-600 text-white rounded-2xl font-bold hover:bg-blue-700">Save Resource</button>
+                                      </div>
+                                  </form>
+                              </div>
+                          </motion.div>
+                      </div>
+                  )}
+              </AnimatePresence>
           </div>
-          <button onClick={() => setOpenDialog(true)} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold hover:bg-blue-700 shadow-lg shadow-blue-100 transition-all">
-            <Plus size={16} /> Add Resource
-          </button>
-        </div>
-      </div>
-      <div className="overflow-x-auto">
-        <table className="w-full text-left">
-          <thead><tr className="bg-zinc-50/50 text-zinc-400 text-[10px] font-black uppercase tracking-widest">
-            <th className="px-8 py-4">Name & Type</th><th className="px-8 py-4">Location</th>
-            <th className="px-8 py-4">Capacity</th><th className="px-8 py-4">Status</th>
-            <th className="px-8 py-4 text-right">Actions</th>
-          </tr></thead>
-          <tbody className="divide-y divide-zinc-100">
-            {filteredResources.map(r => (
-              <tr key={r.id} className="hover:bg-zinc-50/50">
-                <td className="px-8 py-5"><div className="font-bold">{r.name}</div><div className="text-[10px] text-zinc-400 uppercase">{r.type}</div></td>
-                <td className="px-8 py-5 text-sm">{r.location}</td>
-                <td className="px-8 py-5 text-sm">{r.capacity || '-'}</td>
-                <td className="px-8 py-5"><StatusBadge status={r.status} /></td>
-                <td className="px-8 py-5 text-right"><div className="flex justify-end gap-2">
-                  <button className="p-2 text-zinc-400 hover:text-blue-600"><Edit2 size={16} /></button>
-                  <button className="p-2 text-zinc-400 hover:text-red-500"><Trash2 size={16} /></button>
-                </div></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
+      );
+  };
 
   const renderUsersPanel = () => (
     <div className="bg-white rounded-[2rem] border border-zinc-200 overflow-hidden shadow-sm">
