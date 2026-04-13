@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -100,6 +100,7 @@ export default function UserDashboard() {
   const [reportDialog, setReportDialog] = useState(false);
   const [imageFiles, setImageFiles] = useState([]);
   const navigate = useNavigate();
+  const notificationPanelRef = useRef(null);
 
   // Ticket related state
   const [myTickets, setMyTickets] = useState([]);
@@ -134,6 +135,7 @@ export default function UserDashboard() {
       const bookingsRes = await api.get('/bookings/my');
       setMyBookings(bookingsRes.data);
       await fetchMyTickets();   // <-- ADD THIS LINE
+      await fetchUserNotifications();
       // ... rest (notifications, etc.)
     } catch (err) {
       console.error('Failed to fetch data', err);
@@ -154,6 +156,32 @@ export default function UserDashboard() {
       console.error('Failed to fetch tickets', err);
     } finally {
       setTicketsLoading(false);
+    }
+  };
+
+  // Fetch user's notifications
+  const fetchUserNotifications = async () => {
+    try {
+      const response = await api.get(`/notifications/user/${userId}`);
+      setNotifications(response.data);
+      const unreadRes = await api.get(`/notifications/unread-count?userId=${userId}`);
+      setUnreadCount(unreadRes.data);
+    } catch (err) {
+      console.error('Failed to fetch notifications', err);
+    }
+  };
+  
+
+  // Mark all notifications as read
+  const markAllNotificationsAsRead = async () => {
+    try {
+      await api.put(`/notifications/read-all?userId=${userId}`);
+      await fetchUserNotifications();
+      if (notificationPanelRef.current) {
+        notificationPanelRef.current.refresh();
+      }
+    } catch (err) {
+      console.error('Failed to mark all as read', err);
     }
   };
 
@@ -271,26 +299,52 @@ export default function UserDashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2">
           <div className="bg-white rounded-[2rem] border border-zinc-200 p-8 shadow-sm">
-            <h2 className="text-xl font-black text-zinc-900 mb-6 flex items-center gap-2"><Bell size={20} className="text-blue-600" /> Notifications</h2>
-            <div className="space-y-4">
+            <h2 className="text-xl font-black text-zinc-900 mb-6 flex items-center gap-2">
+              <Bell size={20} className="text-blue-600" /> Notifications
+            </h2>
+            <div className="space-y-4 max-h-80 overflow-y-auto">
               {notifications.length === 0 ? (
-                <div className="text-center py-12"><div className="w-16 h-16 bg-zinc-50 rounded-full flex items-center justify-center mx-auto mb-4"><Bell size={24} className="text-zinc-300" /></div><p className="text-zinc-400 text-sm font-medium">No new notifications</p></div>
+                <div className="text-center py-8">
+                  <div className="w-16 h-16 bg-zinc-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Bell size={24} className="text-zinc-300" />
+                  </div>
+                  <p className="text-zinc-400 text-sm font-medium">No notifications</p>
+                </div>
               ) : (
-                notifications.map((notif) => (
-                  <div key={notif.id} className={`p-4 rounded-2xl border transition-all ${notif.read ? 'bg-white border-zinc-100' : 'bg-blue-50/50 border-blue-100 shadow-sm'}`}>
-                    <div className="flex justify-between items-start mb-1"><h4 className="text-sm font-bold text-zinc-900">{notif.title}</h4>{!notif.read && <div className="w-2 h-2 bg-blue-600 rounded-full" />}</div>
+                notifications.slice(0, 5).map((notif) => (
+                  <div key={notif.id} className={`p-4 rounded-2xl border transition-all ${!notif.read ? 'bg-blue-50/50 border-blue-100 shadow-sm' : 'bg-white border-zinc-100'}`}>
+                    <div className="flex justify-between items-start mb-1">
+                      <h4 className="text-sm font-bold text-zinc-900">{notif.title}</h4>
+                      {!notif.read && <div className="w-2 h-2 bg-blue-600 rounded-full" />}
+                    </div>
                     <p className="text-xs text-zinc-500 leading-relaxed mb-2">{notif.message}</p>
-                    <div className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">{new Date(notif.createdAt).toLocaleDateString()}</div>
+                    <div className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">
+                      {new Date(notif.createdAt).toLocaleDateString()}
+                    </div>
                   </div>
                 ))
               )}
             </div>
-            <button className="w-full mt-6 py-3 text-sm font-bold text-zinc-400 hover:text-blue-600 transition-colors">Mark all as read</button>
+            {notifications.filter(n => !n.read).length > 0 && (
+              <button 
+                onClick={markAllNotificationsAsRead} 
+                className="w-full mt-6 py-3 text-sm font-bold text-zinc-400 hover:text-blue-600 transition-colors"
+              >
+                Mark all as read
+              </button>
+            )}
           </div>
         </div>
         <div>
           <div className="bg-zinc-900 rounded-[2rem] p-8 text-white relative overflow-hidden">
-            <div className="relative z-10"><h3 className="text-lg font-bold mb-2">Need Help?</h3><p className="text-zinc-400 text-sm mb-6">Our support team is available 24/7 for any campus issues.</p><button className="w-full py-3 bg-white text-zinc-900 rounded-xl font-bold text-sm hover:bg-zinc-100 transition-all">Contact Support</button></div>
+            <div className="relative z-10"><h3 className="text-lg font-bold mb-2">Need Help?</h3><p className="text-zinc-400 text-sm mb-6">Our support team is available 24/7 for any campus issues.</p>
+              <button 
+                onClick={() => setActiveView('report-issue')} 
+                className="w-full py-3 bg-white text-zinc-900 rounded-xl font-bold text-sm hover:bg-zinc-100 transition-all"
+              >
+                Contact Support
+              </button>
+            </div>
             <div className="absolute -bottom-4 -right-4 w-24 h-24 bg-white/5 blur-[20px] rounded-full" />
           </div>
         </div>
@@ -643,12 +697,12 @@ export default function UserDashboard() {
           <Logo />
           <div className="flex items-center gap-6">
             {userId ? (
-                <NotificationPanel userId={userId} />
-              ) : (
-                <button className="relative p-2 text-zinc-500 hover:text-blue-600">
-                  <Bell size={20} />
-                </button>
-              )}
+              <NotificationPanel ref={notificationPanelRef} userId={userId} />
+            ) : (
+              <button className="relative p-2 text-zinc-500 hover:text-blue-600">
+                <Bell size={20} />
+              </button>
+            )}
             <div className="h-8 w-px bg-zinc-200" />
             <div className="flex items-center gap-3">
               <div className="text-right hidden sm:block"><div className="text-sm font-bold text-zinc-900">{name}</div><div className="text-[10px] font-bold text-blue-600 uppercase">User Dashboard</div></div>

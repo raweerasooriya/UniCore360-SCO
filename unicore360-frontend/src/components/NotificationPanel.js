@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
 import { Bell, Check, Settings, AlertCircle, MessageSquare, Calendar } from 'lucide-react';
 import api from '../services/api';
 
@@ -11,20 +11,18 @@ const getIcon = (type) => {
   }
 };
 
-export default function NotificationPanel({ userId }) {
+const NotificationPanel = forwardRef(({ userId }, ref) => {
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [open, setOpen] = useState(false);
   const [preferencesOpen, setPreferencesOpen] = useState(false);
   const [preferences, setPreferences] = useState(null);
   const panelRef = useRef(null);
-  const hasFetched = useRef(false);   // ← prevents double fetch on mount
+  const hasFetched = useRef(false);
 
   const fetchNotifications = async () => {
     try {
-      console.log(`Fetching notifications for userId: ${userId}`);
       const res = await api.get(`notifications/user/${userId}`);
-      console.log('Notifications response:', res.data);
       setNotifications(res.data);
       const unreadRes = await api.get(`notifications/unread-count?userId=${userId}`);
       setUnreadCount(unreadRes.data);
@@ -52,12 +50,10 @@ export default function NotificationPanel({ userId }) {
     fetchNotifications();
   };
 
-  // Inside NotificationPanel.js
   const updatePreference = async (key, value) => {
     const updated = { ...preferences, [key]: value };
     try {
       await api.put(`notifications/preferences?userId=${userId}`, updated);
-      // Re-fetch to ensure UI matches the backend state
       const res = await api.get(`notifications/preferences?userId=${userId}`);
       setPreferences(res.data);
     } catch (err) {
@@ -65,15 +61,19 @@ export default function NotificationPanel({ userId }) {
     }
   };
 
+  useImperativeHandle(ref, () => ({
+    refresh: () => {
+      fetchNotifications();
+      fetchPreferences();
+    }
+  }));
+
   useEffect(() => {
     if (!userId) return;
-    // Prevent duplicate initial calls in StrictMode / remounts
     if (hasFetched.current) return;
     hasFetched.current = true;
-
     fetchNotifications();
     fetchPreferences();
-
     const interval = setInterval(fetchNotifications, 30000);
     return () => clearInterval(interval);
   }, [userId]);
@@ -127,12 +127,7 @@ export default function NotificationPanel({ userId }) {
               <h4 className="text-sm font-bold mb-2">Notification Preferences</h4>
               <label className="flex items-center justify-between text-sm">
                 <span>Booking updates</span>
-                <input 
-                  type="checkbox" 
-                  className="w-4 h-4 rounded border-zinc-300 text-blue-600 focus:ring-blue-500"
-                  checked={!!preferences?.bookingUpdates} 
-                  onChange={(e) => updatePreference('bookingUpdates', e.target.checked)} 
-                />
+                <input type="checkbox" checked={preferences?.bookingUpdates} onChange={(e) => updatePreference('bookingUpdates', e.target.checked)} />
               </label>
               <label className="flex items-center justify-between text-sm">
                 <span>Ticket updates</span>
@@ -176,4 +171,6 @@ export default function NotificationPanel({ userId }) {
       )}
     </div>
   );
-}
+});
+
+export default NotificationPanel;
