@@ -115,6 +115,9 @@ export default function AdminDashboard() {
   const [showCreateUserModal, setShowCreateUserModal] = useState(false);
   const [createUserForm, setCreateUserForm] = useState({ email: '', name: '', role: 'USER' });
   const [creatingUser, setCreatingUser] = useState(false);
+  const [topResources, setTopResources] = useState([]);
+  const [peakHours, setPeakHours] = useState([]);
+  const [analyticsLoading, setAnalyticsLoading] = useState(false);
 
   console.log("Admin userId:", userId);
   console.log("Raw localStorage userId:", localStorage.getItem("userId"));
@@ -152,6 +155,15 @@ export default function AdminDashboard() {
   }, [activeView]);
 
   useEffect(() => {
+    if (activeView === 'overview') {
+      fetchResources();
+      fetchUsers();
+      fetchAllBookings();
+      fetchTickets();
+    }
+  }, [activeView]);
+
+  useEffect(() => {
     console.log("USER ID IN ADMIN:", userId);
   }, [userId]);
 
@@ -167,6 +179,24 @@ export default function AdminDashboard() {
       } finally {
           setBookingsLoading(false);
       }
+  };
+
+  const fetchTopResources = async () => {
+    try {
+      const response = await api.get('/admin/analytics/top-resources');
+      setTopResources(response.data);
+    } catch (err) {
+      console.error('Failed to fetch top resources', err);
+    }
+  };
+
+  const fetchPeakHours = async () => {
+    try {
+      const response = await api.get('/admin/analytics/peak-hours');
+      setPeakHours(response.data);
+    } catch (err) {
+      console.error('Failed to fetch peak hours', err);
+    }
   };
 
   // Update these functions in AdminDashboard.js
@@ -213,6 +243,12 @@ export default function AdminDashboard() {
     }
   }, [activeView]);
 
+  useEffect(() => {
+  if (activeView === 'overview') {
+      fetchTopResources();
+      fetchPeakHours();
+    }
+  }, [activeView]);
   // ---------- Role Check ----------
   useEffect(() => {
     const role = localStorage.getItem('role');
@@ -1244,31 +1280,52 @@ const renderTicketsPanel = () => (
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <div className="bg-white rounded-[2rem] border border-zinc-200 p-8 shadow-sm">
-          <h2 className="text-xl font-black text-zinc-900 mb-6 flex items-center gap-2"><TrendingUp size={20} className="text-blue-600" /> Top Used Resources</h2>
-          <div className="space-y-4">{[
-            { name: 'Conference Room A', count: 45, color: 'bg-blue-600' },
-            { name: 'Lab 101', count: 32, color: 'bg-emerald-600' },
-            { name: 'Projector', count: 28, color: 'bg-amber-600' },
-          ].map((item, i) => (
-            <div key={i} className="space-y-2">
-              <div className="flex justify-between text-sm font-bold"><span>{item.name}</span><span>{item.count} bookings</span></div>
-              <div className="h-2 bg-zinc-100 rounded-full overflow-hidden"><motion.div initial={{ width: 0 }} animate={{ width: `${(item.count / 50) * 100}%` }} className={`h-full ${item.color}`} /></div>
-            </div>
-          ))}</div>
+          <h2 className="text-xl font-black text-zinc-900 mb-6 flex items-center gap-2">
+            <TrendingUp size={20} className="text-blue-600" /> Top Used Resources
+          </h2>
+          <div className="space-y-4">
+            {topResources.length === 0 ? (
+              <div className="text-center text-zinc-400 py-8">No booking data yet</div>
+            ) : (
+              topResources.map((item, idx) => {
+                const maxCount = topResources[0]?.bookingCount || 1;
+                const percentage = (item.bookingCount / maxCount) * 100;
+                return (
+                  <div key={idx} className="space-y-2">
+                    <div className="flex justify-between text-sm font-bold">
+                      <span>{item.resourceName}</span>
+                      <span>{item.bookingCount} bookings</span>
+                    </div>
+                    <div className="h-2 bg-zinc-100 rounded-full overflow-hidden">
+                      <motion.div
+                        initial={{ width: 0 }}
+                        animate={{ width: `${percentage}%` }}
+                        className="h-full bg-blue-600"
+                      />
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
         </div>
-        <div className="bg-white rounded-[2rem] border border-zinc-200 p-8 shadow-sm">
-          <h2 className="text-xl font-black text-zinc-900 mb-6 flex items-center gap-2"><Clock size={20} className="text-amber-600" /> Peak Booking Hours</h2>
-          <div className="grid grid-cols-3 gap-4">{[
-            { time: '10:00 - 12:00', label: 'Most Popular', color: 'text-blue-600 bg-blue-50' },
-            { time: '14:00 - 16:00', label: 'High Demand', color: 'text-amber-600 bg-amber-50' },
-            { time: '09:00 - 11:00', label: 'Morning Peak', color: 'text-emerald-600 bg-emerald-50' },
-          ].map((item, i) => (
-            <div key={i} className={`p-4 rounded-2xl border border-transparent ${item.color} text-center`}>
-              <div className="text-sm font-black mb-1">{item.time}</div>
-              <div className="text-[10px] font-bold uppercase tracking-widest opacity-70">{item.label}</div>
+          <div className="bg-white rounded-[2rem] border border-zinc-200 p-8 shadow-sm">
+            <h2 className="text-xl font-black text-zinc-900 mb-6 flex items-center gap-2">
+              <Clock size={20} className="text-amber-600" /> Peak Booking Hours
+            </h2>
+            <div className="space-y-4">
+              {peakHours.length === 0 ? (
+                <div className="text-center text-zinc-400 py-8">No booking data yet</div>
+              ) : (
+                peakHours.map((item, idx) => (
+                  <div key={idx} className="flex items-center justify-between p-3 rounded-xl bg-zinc-50">
+                    <span className="text-sm font-bold text-zinc-700">{item.hourSlot}</span>
+                    <span className="text-xs font-bold text-zinc-500">{item.bookingCount} bookings</span>
+                  </div>
+                ))
+              )}
             </div>
-          ))}</div>
-        </div>
+          </div>
       </div>
     </div>
   );
