@@ -112,6 +112,9 @@ export default function AdminDashboard() {
   const username  = localStorage.getItem('name') || 'Admin';
   const storedUserId = localStorage.getItem('userId');
   const userId = storedUserId !== null ? parseInt(storedUserId) : null;
+  const [showCreateUserModal, setShowCreateUserModal] = useState(false);
+  const [createUserForm, setCreateUserForm] = useState({ email: '', name: '', role: 'USER' });
+  const [creatingUser, setCreatingUser] = useState(false);
 
   console.log("Admin userId:", userId);
   console.log("Raw localStorage userId:", localStorage.getItem("userId"));
@@ -335,6 +338,22 @@ export default function AdminDashboard() {
         console.error('Failed to delete user', err);
         alert(err.response?.data || 'Could not delete user');
       }
+    }
+  };
+
+  const createUser = async () => {
+    setCreatingUser(true);
+    try {
+      await api.post('/admin/users', createUserForm);
+      await fetchUsers();
+      setShowCreateUserModal(false);
+      setCreateUserForm({ email: '', name: '', role: 'USER' });
+      alert('User created successfully');
+    } catch (err) {
+      console.error('Failed to create user', err);
+      alert(err.response?.data || 'Could not create user');
+    } finally {
+      setCreatingUser(false);
     }
   };
 
@@ -575,17 +594,27 @@ export default function AdminDashboard() {
           <Users size={20} className="text-blue-600" />
           <h2 className="text-xl font-black text-zinc-900">Users Management</h2>
         </div>
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" size={14} />
-          <input
-            type="text"
-            placeholder="Search users..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9 pr-4 py-2 bg-zinc-50 border border-zinc-100 rounded-full text-xs outline-none focus:ring-2 focus:ring-blue-600/20 w-64"
-          />
+        <div className="flex gap-3">
+          {/* ADD USER BUTTON */}
+          <button
+            onClick={() => setShowCreateUserModal(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-bold hover:bg-emerald-700 transition-colors"
+          >
+            <Plus size={16} /> Add User
+          </button>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" size={14} />
+            <input
+              type="text"
+              placeholder="Search users..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9 pr-4 py-2 bg-zinc-50 border border-zinc-100 rounded-full text-xs outline-none focus:ring-2 focus:ring-blue-600/20 w-64"
+            />
+          </div>
         </div>
       </div>
+
       {usersLoading ? (
         <div className="p-8 text-center">Loading users...</div>
       ) : (
@@ -623,13 +652,95 @@ export default function AdminDashboard() {
                       )}
                     </div>
                   </td>
-                  
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       )}
+
+      {/* Create User Modal */}
+      <AnimatePresence>
+        {showCreateUserModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowCreateUserModal(false)}
+              className="absolute inset-0 bg-zinc-900/60 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative w-full max-w-md bg-white rounded-[2.5rem] shadow-2xl overflow-hidden"
+            >
+              <div className="p-8">
+                <div className="flex items-center gap-4 mb-6">
+                  <div className="w-12 h-12 rounded-2xl bg-emerald-600 flex items-center justify-center text-white">
+                    <UserPlus size={24} />
+                  </div>
+                  <div>
+                    <h3 className="text-2xl font-black text-zinc-900">Add User</h3>
+                    <p className="text-zinc-500 text-sm">Create a new user manually</p>
+                  </div>
+                </div>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-black text-zinc-400 uppercase tracking-widest mb-2">Email *</label>
+                    <input
+                      type="email"
+                      value={createUserForm.email}
+                      onChange={(e) => setCreateUserForm({ ...createUserForm, email: e.target.value })}
+                      className="w-full p-4 bg-zinc-50 border border-zinc-100 rounded-2xl"
+                      placeholder="user@example.com"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-black text-zinc-400 uppercase tracking-widest mb-2">Name</label>
+                    <input
+                      type="text"
+                      value={createUserForm.name}
+                      onChange={(e) => setCreateUserForm({ ...createUserForm, name: e.target.value })}
+                      className="w-full p-4 bg-zinc-50 border border-zinc-100 rounded-2xl"
+                      placeholder="Full name (optional)"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-black text-zinc-400 uppercase tracking-widest mb-2">Role</label>
+                    <select
+                      value={createUserForm.role}
+                      onChange={(e) => setCreateUserForm({ ...createUserForm, role: e.target.value })}
+                      className="w-full p-4 bg-zinc-50 border border-zinc-100 rounded-2xl"
+                    >
+                      <option value="USER">USER</option>
+                      <option value="TECHNICIAN">TECHNICIAN</option>
+                      <option value="ADMIN">ADMIN</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="flex gap-3 pt-6">
+                  <button
+                    onClick={() => setShowCreateUserModal(false)}
+                    className="flex-1 py-4 bg-zinc-100 text-zinc-600 rounded-2xl font-bold"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={createUser}
+                    disabled={creatingUser || !createUserForm.email}
+                    className="flex-[2] py-4 bg-emerald-600 text-white rounded-2xl font-bold disabled:opacity-50"
+                  >
+                    {creatingUser ? 'Creating...' : 'Create User'}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
       {/* Edit Role Dialog */}
       <AnimatePresence>
         {editRoleDialog?.open && (

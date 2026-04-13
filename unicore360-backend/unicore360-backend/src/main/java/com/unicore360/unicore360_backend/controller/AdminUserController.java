@@ -28,6 +28,35 @@ public class AdminUserController {
         return userRepository.findAll();
     }
 
+    @PostMapping("/users")
+    public ResponseEntity<?> createUser(@RequestBody CreateUserRequest request) {
+        if (userRepository.findByEmail(request.getEmail()).isPresent()) {
+            return ResponseEntity.badRequest().body("User with this email already exists");
+        }
+        User user = new User();
+        user.setEmail(request.getEmail());
+        user.setName(request.getName());
+        user.setRole(request.getRole());
+        user.setCreatedAt(java.time.LocalDateTime.now());
+        // GoogleId remains null for manually created users
+        userRepository.save(user);
+        return ResponseEntity.ok().build();
+    }
+
+    // Inner DTO
+    static class CreateUserRequest {
+        private String email;
+        private String name;
+        private Role role;
+        // getters and setters
+        public String getEmail() { return email; }
+        public void setEmail(String email) { this.email = email; }
+        public String getName() { return name; }
+        public void setName(String name) { this.name = name; }
+        public Role getRole() { return role; }
+        public void setRole(Role role) { this.role = role; }
+    }
+
     @PutMapping("/users/{email}/role")
     public ResponseEntity<?> updateUserRole(@PathVariable String email, @RequestBody RoleUpdateRequest request) {
         User user = userRepository.findByEmail(email)
