@@ -65,10 +65,27 @@ public class NotificationController {
 
     @PutMapping("/preferences")
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<NotificationPreference> updatePreferences(@RequestParam Long userId,
-                                                                    @RequestBody NotificationPreference preferences) {
-        preferences.setUserId(userId);
-        return ResponseEntity.ok(preferenceRepository.save(preferences));
+    public ResponseEntity<NotificationPreference> updatePreferences(
+            @RequestParam Long userId,
+            @RequestBody NotificationPreference incoming) {
+
+        // Find the existing preference for this user
+        NotificationPreference pref = preferenceRepository.findByUserId(userId)
+                .orElseGet(() -> {
+                    NotificationPreference newPref = new NotificationPreference();
+                    newPref.setUserId(userId);
+                    return newPref;
+                });
+
+        // Explicitly set the values from the request body
+        pref.setBookingUpdates(incoming.isBookingUpdates());
+        pref.setTicketUpdates(incoming.isTicketUpdates());
+        pref.setComments(incoming.isComments());
+        pref.setSystemNotifications(incoming.isSystemNotifications());
+
+        // Save will now perform an UPDATE because the ID is preserved
+        NotificationPreference saved = preferenceRepository.save(pref);
+        return ResponseEntity.ok(saved);
     }
 
     @RequestMapping(value = "/create-test", method = {RequestMethod.GET, RequestMethod.POST})

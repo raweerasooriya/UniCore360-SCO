@@ -52,10 +52,17 @@ export default function NotificationPanel({ userId }) {
     fetchNotifications();
   };
 
+  // Inside NotificationPanel.js
   const updatePreference = async (key, value) => {
     const updated = { ...preferences, [key]: value };
-    await api.put(`notifications/preferences?userId=${userId}`, updated);
-    setPreferences(updated);
+    try {
+      await api.put(`notifications/preferences?userId=${userId}`, updated);
+      // Re-fetch to ensure UI matches the backend state
+      const res = await api.get(`notifications/preferences?userId=${userId}`);
+      setPreferences(res.data);
+    } catch (err) {
+      console.error('Failed to update preference', err);
+    }
   };
 
   useEffect(() => {
@@ -120,7 +127,12 @@ export default function NotificationPanel({ userId }) {
               <h4 className="text-sm font-bold mb-2">Notification Preferences</h4>
               <label className="flex items-center justify-between text-sm">
                 <span>Booking updates</span>
-                <input type="checkbox" checked={preferences?.bookingUpdates} onChange={(e) => updatePreference('bookingUpdates', e.target.checked)} />
+                <input 
+                  type="checkbox" 
+                  className="w-4 h-4 rounded border-zinc-300 text-blue-600 focus:ring-blue-500"
+                  checked={!!preferences?.bookingUpdates} 
+                  onChange={(e) => updatePreference('bookingUpdates', e.target.checked)} 
+                />
               </label>
               <label className="flex items-center justify-between text-sm">
                 <span>Ticket updates</span>
