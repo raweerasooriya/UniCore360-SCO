@@ -110,6 +110,9 @@ export default function TechnicianDashboard() {
   const username = localStorage.getItem('name') || 'Technician';
   const userId = parseInt(localStorage.getItem('userId')) || null;
 
+  const [editingCommentId, setEditingCommentId] = useState(null);
+  const [editingCommentText, setEditingCommentText] = useState('');
+
   useEffect(() => {
     const role = localStorage.getItem('role');
     if (role !== 'TECHNICIAN') {
@@ -173,6 +176,34 @@ export default function TechnicianDashboard() {
       alert('Could not add comment.');
     } finally {
       setSubmittingComment(false);
+    }
+  };
+
+  const updateComment = async (commentId, newText) => {
+  try {
+      await api.put(`/tickets/comments/${commentId}`, { text: newText });
+      if (selectedTicket) {
+        await fetchTicketDetails(selectedTicket.id);
+      }
+      setEditingCommentId(null);
+      setEditingCommentText('');
+    } catch (err) {
+      console.error('Failed to update comment', err);
+      alert('Could not update comment');
+    }
+  };
+
+  const deleteComment = async (commentId) => {
+    if (window.confirm('Are you sure you want to delete this comment?')) {
+      try {
+        await api.delete(`/tickets/comments/${commentId}`);
+        if (selectedTicket) {
+          await fetchTicketDetails(selectedTicket.id);
+        }
+      } catch (err) {
+        console.error('Failed to delete comment', err);
+        alert('Could not delete comment');
+      }
     }
   };
 
@@ -389,13 +420,68 @@ export default function TechnicianDashboard() {
                   )}
                   <div>
                     <span className="font-bold">Comments</span>
-                    <div className="mt-2 space-y-2 max-h-60 overflow-y-auto">
-                      {selectedTicket.comments?.length ? selectedTicket.comments.map(c => (
-                        <div key={c.id} className="bg-zinc-50 p-3 rounded-xl">
-                          <div className="text-xs font-bold">{c.user?.name} <span className="text-zinc-400">{new Date(c.createdAt).toLocaleString()}</span></div>
-                          <div className="text-sm mt-1">{c.text}</div>
-                        </div>
-                      )) : <div className="text-zinc-400 text-sm">No comments yet.</div>}
+                    <div className="space-y-2 max-h-60 overflow-y-auto mb-4">
+                      {selectedTicket.comments?.length ? selectedTicket.comments.map(c => {
+                        const isOwnComment = c.user?.id === userId;
+                        const isEditing = editingCommentId === c.id;
+                        return (
+                          <div key={c.id} className="bg-zinc-50 p-3 rounded-xl">
+                            <div className="flex justify-between items-start">
+                              <div className="text-xs font-bold">
+                                {c.user?.name} <span className="text-zinc-400">{new Date(c.createdAt).toLocaleString()}</span>
+                                {c.updatedAt && c.updatedAt !== c.createdAt && (
+                                  <span className="text-zinc-400 italic ml-1">(edited)</span>
+                                )}
+                              </div>
+                              {isOwnComment && !isEditing && (
+                                <div className="flex gap-2">
+                                  <button
+                                    onClick={() => {
+                                      setEditingCommentId(c.id);
+                                      setEditingCommentText(c.text);
+                                    }}
+                                    className="text-xs text-blue-600 hover:underline"
+                                  >
+                                    Edit
+                                  </button>
+                                  <button
+                                    onClick={() => deleteComment(c.id)}
+                                    className="text-xs text-red-600 hover:underline"
+                                  >
+                                    Delete
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                            {isEditing ? (
+                              <div className="mt-2">
+                                <textarea
+                                  value={editingCommentText}
+                                  onChange={(e) => setEditingCommentText(e.target.value)}
+                                  className="w-full p-2 bg-white border rounded-lg text-sm"
+                                  rows={2}
+                                />
+                                <div className="flex gap-2 mt-2">
+                                  <button
+                                    onClick={() => updateComment(c.id, editingCommentText)}
+                                    className="px-2 py-1 bg-blue-600 text-white rounded text-xs"
+                                  >
+                                    Save
+                                  </button>
+                                  <button
+                                    onClick={() => setEditingCommentId(null)}
+                                    className="px-2 py-1 bg-zinc-300 rounded text-xs"
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="text-sm mt-1">{c.text}</div>
+                            )}
+                          </div>
+                        );
+                      }) : <div className="text-zinc-400 text-sm">No comments yet.</div>}
                     </div>
                     <div className="flex gap-2 mt-3">
                       <textarea

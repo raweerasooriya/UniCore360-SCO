@@ -11,4 +11,5 @@ public class TicketCommentDTO {
     private String text;
     private UserDTO user;
     private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
 }

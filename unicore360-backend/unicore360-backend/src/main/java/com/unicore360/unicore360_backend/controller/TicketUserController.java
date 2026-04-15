@@ -55,6 +55,14 @@ public class TicketUserController {
         return ResponseEntity.ok(ticketService.addComment(id, request.getText(), user));
     }
 
+    @PutMapping("/comments/{commentId}")
+    public ResponseEntity<TicketCommentDTO> updateComment(@PathVariable Long commentId,
+                                                          @RequestBody CommentRequest request,
+                                                          @AuthenticationPrincipal UserDetails userDetails) {
+        User user = userService.getUserByEmail(userDetails.getUsername());
+        return ResponseEntity.ok(ticketService.updateComment(commentId, request.getText(), user));
+    }
+
     @DeleteMapping("/comments/{commentId}")
     public ResponseEntity<Void> deleteComment(@PathVariable Long commentId,
                                               @AuthenticationPrincipal UserDetails userDetails) {

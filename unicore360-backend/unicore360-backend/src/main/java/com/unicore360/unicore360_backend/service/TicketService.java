@@ -270,6 +270,18 @@ public class TicketService {
         ticketRepository.delete(ticket);
     }
 
+    @Transactional
+    public TicketCommentDTO updateComment(Long commentId, String newText, User user) {
+        TicketComment comment = commentRepository.findById(commentId)
+                .orElseThrow(() -> new RuntimeException("Comment not found"));
+        if (!comment.getUser().getId().equals(user.getId()) && user.getRole() != Role.ADMIN) {
+            throw new RuntimeException("Not authorized to edit this comment");
+        }
+        comment.setText(newText);
+        comment = commentRepository.save(comment);
+        return convertToCommentDTO(comment);
+    }
+
     // Helper conversion methods
     private TicketResponseDTO convertToDTO(Ticket ticket) {
         return TicketResponseDTO.builder()
