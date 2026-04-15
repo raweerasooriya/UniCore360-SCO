@@ -101,6 +101,7 @@ export default function UserDashboard() {
   const [imageFiles, setImageFiles] = useState([]);
   const navigate = useNavigate();
   const notificationPanelRef = useRef(null);
+  const [successMessage, setSuccessMessage] = useState(null);
 
   // Ticket related state
   const [myTickets, setMyTickets] = useState([]);
@@ -126,6 +127,13 @@ export default function UserDashboard() {
     }
     fetchUserData();
   }, [navigate]);
+
+  useEffect(() => {
+  if (successMessage) {
+      const timer = setTimeout(() => setSuccessMessage(null), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [successMessage]);
 
   const fetchUserData = async () => {
     setLoading(true);
@@ -452,15 +460,15 @@ export default function UserDashboard() {
       formData.append('location', reportForm.location);
       formData.append('contactEmail', reportForm.contactEmail);
       reportImages.forEach(file => formData.append('attachments', file));
-      
+
       try {
         await createTicket(formData);
-        alert('Ticket created successfully!');
+        setSuccessMessage('✅ Ticket created successfully!');
         setReportForm({ title: '', category: '', description: '', priority: 'MEDIUM', contactEmail: '', location: '' });
         setReportImages([]);
-        setActiveView('my-tickets');   // Changed to 'my-tickets' (or 'my-reports' if you keep that)
+        setActiveView('my-reports');   // switch to My Reports tab
       } catch (err) {
-        alert('Failed to create ticket.');
+        setSuccessMessage('❌ Failed to create ticket. Please try again.');
       } finally {
         setSubmittingReport(false);
       }
@@ -712,6 +720,16 @@ export default function UserDashboard() {
           </div>
         </div>
       </header>
+
+      {/* ✅ TOAST MESSAGE - ADD THIS RIGHT HERE */}
+      {successMessage && (
+        <div className="fixed top-20 right-6 z-50 animate-in slide-in-from-top-2 fade-in duration-300">
+          <div className="bg-emerald-500 text-white px-6 py-3 rounded-2xl shadow-lg font-bold text-sm flex items-center gap-2">
+            <CheckCircle2 size={18} />
+            {successMessage}
+          </div>
+        </div>
+      )}
 
       <div className="flex flex-1">
         <aside className="w-64 bg-white border-r border-zinc-200 flex-shrink-0 hidden md:block">
