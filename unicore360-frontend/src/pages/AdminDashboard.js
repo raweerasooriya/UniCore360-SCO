@@ -605,47 +605,138 @@ export default function AdminDashboard() {
               {/* Add/Edit Dialog */}
               <AnimatePresence>
                   {resourceDialog.open && (
-                      <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
-                          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setResourceDialog({ open: false, editing: null })} className="absolute inset-0 bg-zinc-900/60 backdrop-blur-sm" />
-                          <motion.div initial={{ opacity: 0, scale: 0.9, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.9, y: 20 }} className="relative w-full max-w-lg bg-white rounded-[2.5rem] shadow-2xl overflow-hidden">
-                              <div className="p-8 md:p-10">
-                                  <div className="flex items-center gap-4 mb-8">
-                                      <div className="w-12 h-12 rounded-2xl bg-blue-600 flex items-center justify-center text-white"><Building2 size={24} /></div>
-                                      <div><h3 className="text-2xl font-black text-zinc-900">{resourceDialog.editing ? 'Edit Resource' : 'Add Resource'}</h3><p className="text-zinc-500 text-sm">{resourceDialog.editing ? 'Update resource details' : 'Create a new bookable campus asset'}</p></div>
+                      <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setResourceDialog({ open: false, editing: null })} className="absolute inset-0 bg-zinc-950/70 backdrop-blur-md" />
+                          <motion.div
+                              initial={{ opacity: 0, scale: 0.96, y: 24 }}
+                              animate={{ opacity: 1, scale: 1, y: 0 }}
+                              exit={{ opacity: 0, scale: 0.96, y: 24 }}
+                              transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+                              className="relative w-full max-w-[440px] bg-white rounded-2xl overflow-hidden"
+                              style={{ boxShadow: '0 0 0 1px rgba(0,0,0,0.06), 0 8px 16px -4px rgba(0,0,0,0.08), 0 32px 64px -16px rgba(0,0,0,0.18)' }}
+                          >
+                              {/* Top accent line */}
+                              <div className="h-[3px] w-full bg-gradient-to-r from-zinc-900 via-zinc-600 to-zinc-400" />
+
+                              {/* Header */}
+                              <div className="flex items-start justify-between px-7 pt-6 pb-5">
+                                  <div className="flex items-center gap-3.5">
+                                      <div className="w-10 h-10 rounded-xl bg-zinc-900 flex items-center justify-center shrink-0" style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.18)' }}>
+                                          <Building2 size={18} className="text-white" />
+                                      </div>
+                                      <div>
+                                          <h3 className="text-[15px] font-bold text-zinc-900 tracking-tight leading-tight">
+                                              {resourceDialog.editing ? 'Edit Resource' : 'New Resource'}
+                                          </h3>
+                                          <p className="text-[11px] text-zinc-400 font-medium mt-0.5">
+                                              {resourceDialog.editing ? 'Modify the resource details below' : 'Register a new bookable campus asset'}
+                                          </p>
+                                      </div>
                                   </div>
-                                  <form className="space-y-6" onSubmit={(e) => { e.preventDefault(); handleSaveResource(); }}>
-                                      <div className="grid grid-cols-2 gap-4">
-                                          <div className="col-span-2">
-                                              <label className="block text-xs font-black text-zinc-400 uppercase tracking-widest mb-2">Resource Name</label>
-                                              <input type="text" value={resourceForm.name} onChange={(e) => setResourceForm({...resourceForm, name: e.target.value})} className="w-full p-4 bg-zinc-50 border border-zinc-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-600/20" placeholder="e.g. Conference Room A" required />
-                                          </div>
-                                          <div>
-                                              <label className="block text-xs font-black text-zinc-400 uppercase tracking-widest mb-2">Type</label>
-                                              <select value={resourceForm.type} onChange={(e) => setResourceForm({...resourceForm, type: e.target.value})} className="w-full p-4 bg-zinc-50 border border-zinc-100 rounded-2xl">
+                                  <button
+                                      type="button"
+                                      onClick={() => setResourceDialog({ open: false, editing: null })}
+                                      className="mt-0.5 w-7 h-7 flex items-center justify-center rounded-lg text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-all duration-150"
+                                  >
+                                      <X size={15} />
+                                  </button>
+                              </div>
+
+                              {/* Divider */}
+                              <div className="mx-7 h-px bg-zinc-100" />
+
+                              {/* Form Body */}
+                              <div className="px-7 pt-5 pb-7">
+                                  <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); handleSaveResource(); }}>
+
+                                      {/* Resource Name */}
+                                      <div className="space-y-1.5">
+                                          <label className="flex items-center gap-1 text-[11px] font-semibold text-zinc-500 uppercase tracking-widest">
+                                              Resource Name <span className="text-zinc-900 normal-case tracking-normal font-medium">*</span>
+                                          </label>
+                                          <input
+                                              type="text"
+                                              value={resourceForm.name}
+                                              onChange={(e) => setResourceForm({...resourceForm, name: e.target.value})}
+                                              className="w-full h-10 px-3.5 bg-zinc-50 border border-zinc-200 rounded-lg text-[13.5px] text-zinc-900 font-medium placeholder-zinc-400 outline-none transition-all duration-150 focus:bg-white focus:border-zinc-900 focus:ring-3 focus:ring-zinc-900/8"
+                                              placeholder="e.g. Conference Room A"
+                                              required
+                                          />
+                                      </div>
+
+                                      {/* Type + Capacity */}
+                                      <div className="grid grid-cols-2 gap-3">
+                                          <div className="space-y-1.5">
+                                              <label className="block text-[11px] font-semibold text-zinc-500 uppercase tracking-widest">Type</label>
+                                              <select
+                                                  value={resourceForm.type}
+                                                  onChange={(e) => setResourceForm({...resourceForm, type: e.target.value})}
+                                                  className="w-full h-10 px-3.5 bg-zinc-50 border border-zinc-200 rounded-lg text-[13.5px] text-zinc-900 font-medium outline-none transition-all duration-150 focus:bg-white focus:border-zinc-900 focus:ring-3 focus:ring-zinc-900/8 cursor-pointer"
+                                              >
                                                   <option value="ROOM">Room</option>
                                                   <option value="LAB">Lab</option>
                                                   <option value="EQUIPMENT">Equipment</option>
                                               </select>
                                           </div>
-                                          <div>
-                                              <label className="block text-xs font-black text-zinc-400 uppercase tracking-widest mb-2">Capacity</label>
-                                              <input type="number" value={resourceForm.capacity} onChange={(e) => setResourceForm({...resourceForm, capacity: e.target.value})} className="w-full p-4 bg-zinc-50 border border-zinc-100 rounded-2xl" placeholder="0 (for equipment leave blank)" />
-                                          </div>
-                                          <div className="col-span-2">
-                                              <label className="block text-xs font-black text-zinc-400 uppercase tracking-widest mb-2">Location</label>
-                                              <input type="text" value={resourceForm.location} onChange={(e) => setResourceForm({...resourceForm, location: e.target.value})} className="w-full p-4 bg-zinc-50 border border-zinc-100 rounded-2xl" placeholder="e.g. Building 1, Floor 2" required />
-                                          </div>
-                                          <div className="col-span-2">
-                                              <label className="block text-xs font-black text-zinc-400 uppercase tracking-widest mb-2">Status</label>
-                                              <select value={resourceForm.status} onChange={(e) => setResourceForm({...resourceForm, status: e.target.value})} className="w-full p-4 bg-zinc-50 border border-zinc-100 rounded-2xl">
-                                                  <option value="ACTIVE">Active</option>
-                                                  <option value="OUT_OF_SERVICE">Out of Service</option>
-                                              </select>
+                                          <div className="space-y-1.5">
+                                              <label className="block text-[11px] font-semibold text-zinc-500 uppercase tracking-widest">Capacity</label>
+                                              <input
+                                                  type="number"
+                                                  value={resourceForm.capacity}
+                                                  onChange={(e) => setResourceForm({...resourceForm, capacity: e.target.value})}
+                                                  className="w-full h-10 px-3.5 bg-zinc-50 border border-zinc-200 rounded-lg text-[13.5px] text-zinc-900 font-medium placeholder-zinc-400 outline-none transition-all duration-150 focus:bg-white focus:border-zinc-900 focus:ring-3 focus:ring-zinc-900/8"
+                                                  placeholder="—"
+                                              />
                                           </div>
                                       </div>
-                                      <div className="flex gap-3 pt-4">
-                                          <button type="button" onClick={() => setResourceDialog({ open: false, editing: null })} className="flex-1 py-4 bg-zinc-100 text-zinc-600 rounded-2xl font-bold">Cancel</button>
-                                          <button type="submit" className="flex-[2] py-4 bg-blue-600 text-white rounded-2xl font-bold hover:bg-blue-700">Save Resource</button>
+
+                                      {/* Location */}
+                                      <div className="space-y-1.5">
+                                          <label className="flex items-center gap-1 text-[11px] font-semibold text-zinc-500 uppercase tracking-widest">
+                                              Location <span className="text-zinc-900 normal-case tracking-normal font-medium">*</span>
+                                          </label>
+                                          <input
+                                              type="text"
+                                              value={resourceForm.location}
+                                              onChange={(e) => setResourceForm({...resourceForm, location: e.target.value})}
+                                              className="w-full h-10 px-3.5 bg-zinc-50 border border-zinc-200 rounded-lg text-[13.5px] text-zinc-900 font-medium placeholder-zinc-400 outline-none transition-all duration-150 focus:bg-white focus:border-zinc-900 focus:ring-3 focus:ring-zinc-900/8"
+                                              placeholder="e.g. Building 1, Floor 2"
+                                              required
+                                          />
+                                      </div>
+
+                                      {/* Status */}
+                                      <div className="space-y-1.5">
+                                          <label className="block text-[11px] font-semibold text-zinc-500 uppercase tracking-widest">Status</label>
+                                          <select
+                                              value={resourceForm.status}
+                                              onChange={(e) => setResourceForm({...resourceForm, status: e.target.value})}
+                                              className="w-full h-10 px-3.5 bg-zinc-50 border border-zinc-200 rounded-lg text-[13.5px] text-zinc-900 font-medium outline-none transition-all duration-150 focus:bg-white focus:border-zinc-900 focus:ring-3 focus:ring-zinc-900/8 cursor-pointer"
+                                          >
+                                              <option value="ACTIVE">Active</option>
+                                              <option value="OUT_OF_SERVICE">Out of Service</option>
+                                          </select>
+                                      </div>
+
+                                      {/* Divider before actions */}
+                                      <div className="h-px bg-zinc-100 !mt-5" />
+
+                                      {/* Actions */}
+                                      <div className="flex gap-2.5 !mt-4">
+                                          <button
+                                              type="button"
+                                              onClick={() => setResourceDialog({ open: false, editing: null })}
+                                              className="flex-1 h-10 px-4 bg-white border border-zinc-200 text-zinc-700 rounded-lg text-[13px] font-semibold hover:bg-zinc-50 hover:border-zinc-300 transition-all duration-150"
+                                          >
+                                              Cancel
+                                          </button>
+                                          <button
+                                              type="submit"
+                                              className="flex-[2] h-10 px-4 bg-zinc-900 text-white rounded-lg text-[13px] font-semibold tracking-tight transition-all duration-150 hover:bg-zinc-800 active:scale-[0.98]"
+                                              style={{ boxShadow: '0 1px 2px rgba(0,0,0,0.2), 0 0 0 1px rgba(0,0,0,0.08)' }}
+                                          >
+                                              {resourceDialog.editing ? 'Update Resource' : 'Save Resource'}
+                                          </button>
                                       </div>
                                   </form>
                               </div>
