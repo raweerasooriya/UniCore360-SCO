@@ -516,7 +516,7 @@ export default function AdminDashboard() {
       return (
           <div className="bg-white rounded-xl border border-zinc-200 overflow-hidden" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.04)' }}>
 
-              {/* Header row — title left, button right */}
+              {/* Header row */}
               <div className="px-6 py-4 flex items-center justify-between border-b border-zinc-100">
                   <div className="flex items-center gap-2.5">
                       <Building2 size={16} className="text-zinc-400" />
@@ -525,26 +525,26 @@ export default function AdminDashboard() {
                   </div>
                   <button
                       onClick={openCreateDialog}
-                      className="flex items-center gap-1.5 h-8 px-3 bg-zinc-900 text-white rounded-lg text-xs font-semibold hover:bg-zinc-700 active:scale-[0.97] transition-all"
+                      className="flex items-center gap-1.5 h-8 px-3 bg-zinc-900 text-white rounded-lg text-xs font-semibold transition-all duration-200 hover:bg-zinc-700 hover:scale-105 hover:shadow-lg active:scale-95"
                       style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.25)' }}
                   >
-                      <Plus size={13} /> Add Resource
+                      <Plus size={13} className="transition-transform duration-200 group-hover:rotate-90" /> Add Resource
                   </button>
               </div>
 
-              {/* Filter bar — clean, single row */}
+              {/* Filter bar */}
               <div className="px-6 py-3 flex flex-wrap gap-2 border-b border-zinc-100 bg-zinc-50/50">
                   <input
                       type="text"
                       placeholder="Name"
                       value={searchFilters.name}
                       onChange={(e) => setSearchFilters({...searchFilters, name: e.target.value})}
-                      className="h-7 px-2.5 bg-white border border-zinc-200 rounded-md text-xs text-zinc-700 placeholder-zinc-400 outline-none w-24 focus:border-zinc-400 transition-colors"
+                      className="h-7 px-2.5 bg-white border border-zinc-200 rounded-md text-xs text-zinc-700 placeholder-zinc-400 outline-none w-24 transition-all duration-200 hover:border-zinc-400 hover:scale-105 focus:border-zinc-500 focus:scale-105 focus:shadow-sm"
                   />
                   <select
                       value={searchFilters.type}
                       onChange={(e) => setSearchFilters({...searchFilters, type: e.target.value})}
-                      className="h-7 px-2.5 bg-white border border-zinc-200 rounded-md text-xs text-zinc-700 outline-none focus:border-zinc-400 transition-colors cursor-pointer"
+                      className="h-7 px-2.5 bg-white border border-zinc-200 rounded-md text-xs text-zinc-700 outline-none transition-all duration-200 hover:border-zinc-400 hover:scale-105 focus:border-zinc-500 focus:scale-105 cursor-pointer"
                   >
                       <option value="">All Types</option>
                       <option value="ROOM">Room</option>
@@ -556,12 +556,12 @@ export default function AdminDashboard() {
                       placeholder="Location"
                       value={searchFilters.location}
                       onChange={(e) => setSearchFilters({...searchFilters, location: e.target.value})}
-                      className="h-7 px-2.5 bg-white border border-zinc-200 rounded-md text-xs text-zinc-700 placeholder-zinc-400 outline-none w-24 focus:border-zinc-400 transition-colors"
+                      className="h-7 px-2.5 bg-white border border-zinc-200 rounded-md text-xs text-zinc-700 placeholder-zinc-400 outline-none w-24 transition-all duration-200 hover:border-zinc-400 hover:scale-105 focus:border-zinc-500 focus:scale-105 focus:shadow-sm"
                   />
                   <select
                       value={searchFilters.status}
                       onChange={(e) => setSearchFilters({...searchFilters, status: e.target.value})}
-                      className="h-7 px-2.5 bg-white border border-zinc-200 rounded-md text-xs text-zinc-700 outline-none focus:border-zinc-400 transition-colors cursor-pointer"
+                      className="h-7 px-2.5 bg-white border border-zinc-200 rounded-md text-xs text-zinc-700 outline-none transition-all duration-200 hover:border-zinc-400 hover:scale-105 focus:border-zinc-500 focus:scale-105 cursor-pointer"
                   >
                       <option value="">All Status</option>
                       <option value="ACTIVE">Active</option>
@@ -586,18 +586,22 @@ export default function AdminDashboard() {
                           </thead>
                           <tbody className="divide-y divide-zinc-50">
                               {filteredResources.map((r) => (
-                                  <tr key={r.id} className="hover:bg-zinc-50 transition-colors">
-                                      <td className="px-6 py-3.5">
-                                          <div className="text-sm font-semibold text-zinc-900">{r.name}</div>
+                                  <tr key={r.id} className="group transition-all duration-200 hover:bg-zinc-50 hover:shadow-[inset_3px_0_0_0_#18181b]">
+                                      <td className="px-6 py-3.5 transition-transform duration-200">
+                                          <div className="text-sm font-semibold text-zinc-900 transition-all duration-200 group-hover:translate-x-0.5">{r.name}</div>
                                           <div className="text-[10px] text-zinc-400 uppercase tracking-wider mt-0.5">{r.type}</div>
                                       </td>
-                                      <td className="px-6 py-3.5 text-xs text-zinc-500">{r.location}</td>
-                                      <td className="px-6 py-3.5 text-xs text-zinc-500">{r.capacity || <span className="text-zinc-300">—</span>}</td>
-                                      <td className="px-6 py-3.5"><StatusBadge status={r.status} /></td>
+                                      <td className="px-6 py-3.5 text-xs text-zinc-500 transition-all duration-200 group-hover:text-zinc-700">{r.location}</td>
+                                      <td className="px-6 py-3.5 text-xs text-zinc-500 transition-all duration-200 group-hover:text-zinc-700">{r.capacity || <span className="text-zinc-300">—</span>}</td>
+                                      <td className="px-6 py-3.5">
+                                          <div className="transition-transform duration-200 group-hover:scale-105 inline-block">
+                                              <StatusBadge status={r.status} />
+                                          </div>
+                                      </td>
                                       <td className="px-6 py-3.5 text-right">
                                           <div className="flex justify-end gap-1">
-                                              <button onClick={() => openEditDialog(r)} className="p-1.5 rounded-md text-zinc-400 hover:text-zinc-800 hover:bg-zinc-100 transition-all" title="Edit"><Edit2 size={14} /></button>
-                                              <button onClick={() => deleteResource(r.id)} className="p-1.5 rounded-md text-zinc-400 hover:text-red-500 hover:bg-red-50 transition-all" title="Delete"><Trash2 size={14} /></button>
+                                              <button onClick={() => openEditDialog(r)} className="p-1.5 rounded-md text-zinc-400 transition-all duration-200 hover:text-zinc-900 hover:bg-zinc-200 hover:scale-110 active:scale-95" title="Edit"><Edit2 size={14} /></button>
+                                              <button onClick={() => deleteResource(r.id)} className="p-1.5 rounded-md text-zinc-400 transition-all duration-200 hover:text-red-500 hover:bg-red-50 hover:scale-110 active:scale-95" title="Delete"><Trash2 size={14} /></button>
                                           </div>
                                       </td>
                                   </tr>
