@@ -102,6 +102,7 @@ export default function UserDashboard() {
   const navigate = useNavigate();
   const notificationPanelRef = useRef(null);
   const [successMessage, setSuccessMessage] = useState(null);
+  const [resourceFilters, setResourceFilters] = useState({ name: '', type: '', location: '', status: '' });
 
   // Ticket related state
   const [myTickets, setMyTickets] = useState([]);
@@ -393,26 +394,102 @@ export default function UserDashboard() {
   );
 
   // ---------- Browse & Book View ----------
-  const renderBrowseBook = () => (
-    <div className="bg-white rounded-[2rem] border border-zinc-200 overflow-hidden shadow-sm">
-      <div className="px-8 py-6 border-b border-zinc-100 flex items-center justify-between">
-        <h2 className="text-xl font-black text-zinc-900 flex items-center gap-2"><Building2 size={20} className="text-blue-600" /> Available Resources</h2>
-        <div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" size={14} /><input type="text" placeholder="Search..." className="pl-9 pr-4 py-2 bg-zinc-50 border border-zinc-100 rounded-full text-xs outline-none focus:ring-2 focus:ring-blue-600/10" /></div>
+  const renderBrowseBook = () => {
+    const filteredResources = resources.filter(r => {
+      const matchName = !resourceFilters.name || r.name.toLowerCase().includes(resourceFilters.name.toLowerCase());
+      const matchType = !resourceFilters.type || r.type === resourceFilters.type;
+      const matchLocation = !resourceFilters.location || r.location.toLowerCase().includes(resourceFilters.location.toLowerCase());
+      const matchStatus = !resourceFilters.status || r.status === resourceFilters.status;
+      return matchName && matchType && matchLocation && matchStatus;
+    });
+
+    return (
+    <div className="bg-white rounded-xl border border-zinc-200 overflow-hidden" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.04)' }}>
+      {/* Header */}
+      <div className="px-6 py-4 flex items-center justify-between border-b border-zinc-100">
+        <div className="flex items-center gap-2.5">
+          <Building2 size={16} className="text-zinc-400" />
+          <h2 className="text-sm font-semibold text-zinc-900 tracking-tight">Available Resources</h2>
+          <span className="text-xs text-zinc-400 font-medium">({filteredResources.length})</span>
+        </div>
+      </div>
+
+      {/* Filter bar */}
+      <div className="px-6 py-3 flex flex-wrap gap-2 border-b border-zinc-100 bg-zinc-50/50">
+        <input
+          type="text"
+          placeholder="Name"
+          value={resourceFilters.name}
+          onChange={(e) => setResourceFilters({...resourceFilters, name: e.target.value})}
+          className="h-7 px-2.5 bg-white border border-zinc-200 rounded-md text-xs text-zinc-700 placeholder-zinc-400 outline-none w-24 transition-all duration-200 hover:border-zinc-400 focus:border-zinc-500 focus:shadow-sm"
+        />
+        <select
+          value={resourceFilters.type}
+          onChange={(e) => setResourceFilters({...resourceFilters, type: e.target.value})}
+          className="h-7 px-2.5 bg-white border border-zinc-200 rounded-md text-xs text-zinc-700 outline-none transition-all duration-200 hover:border-zinc-400 focus:border-zinc-500 cursor-pointer"
+        >
+          <option value="">All Types</option>
+          <option value="ROOM">Room</option>
+          <option value="LAB">Lab</option>
+          <option value="EQUIPMENT">Equipment</option>
+        </select>
+        <input
+          type="text"
+          placeholder="Location"
+          value={resourceFilters.location}
+          onChange={(e) => setResourceFilters({...resourceFilters, location: e.target.value})}
+          className="h-7 px-2.5 bg-white border border-zinc-200 rounded-md text-xs text-zinc-700 placeholder-zinc-400 outline-none w-24 transition-all duration-200 hover:border-zinc-400 focus:border-zinc-500 focus:shadow-sm"
+        />
+        <select
+          value={resourceFilters.status}
+          onChange={(e) => setResourceFilters({...resourceFilters, status: e.target.value})}
+          className="h-7 px-2.5 bg-white border border-zinc-200 rounded-md text-xs text-zinc-700 outline-none transition-all duration-200 hover:border-zinc-400 focus:border-zinc-500 cursor-pointer"
+        >
+          <option value="">All Status</option>
+          <option value="ACTIVE">Active</option>
+          <option value="OUT_OF_SERVICE">Out of Service</option>
+        </select>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-left">
-          <thead className="bg-zinc-50/50 text-zinc-400 text-[10px] font-black uppercase tracking-widest"><tr><th className="px-8 py-4">Name & Type</th><th className="px-8 py-4">Details</th><th className="px-8 py-4">Status</th><th className="px-8 py-4 text-right">Action</th></tr></thead>
-          <tbody className="divide-y divide-zinc-100">
-            {resources.map((r) => (
-              <tr key={r.id} className="hover:bg-zinc-50/50">
-                <td className="px-8 py-5"><div className="font-bold">{r.name}</div><div className="text-[10px] text-zinc-400 uppercase">{r.type}</div></td>
-                <td className="px-8 py-5"><div className="flex items-center gap-4 text-sm"><MapPin size={14} /> {r.location} {r.capacity && <><Users size={14} /> {r.capacity}</>}</div></td>
-                <td className="px-8 py-5"><StatusBadge status={r.status} /></td>
-                <td className="px-8 py-5 text-right">
-                  <button onClick={() => setBookingDialog({ open: true, resource: r })} disabled={r.status !== 'ACTIVE'} className={`px-4 py-2 rounded-xl text-xs font-bold ${r.status === 'ACTIVE' ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-zinc-100 text-zinc-400 cursor-not-allowed'}`}>Book Now</button>
+          <thead>
+            <tr className="border-b border-zinc-100">
+              <th className="px-6 py-3 text-[10px] font-semibold text-zinc-400 uppercase tracking-widest">Name & Type</th>
+              <th className="px-6 py-3 text-[10px] font-semibold text-zinc-400 uppercase tracking-widest">Location</th>
+              <th className="px-6 py-3 text-[10px] font-semibold text-zinc-400 uppercase tracking-widest">Capacity</th>
+              <th className="px-6 py-3 text-[10px] font-semibold text-zinc-400 uppercase tracking-widest">Status</th>
+              <th className="px-6 py-3 text-[10px] font-semibold text-zinc-400 uppercase tracking-widest text-right">Action</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-zinc-50">
+            {filteredResources.map((r) => (
+              <tr key={r.id} className="group transition-all duration-200 hover:bg-zinc-50 hover:shadow-[inset_3px_0_0_0_#18181b]">
+                <td className="px-6 py-3.5">
+                  <div className="text-sm font-semibold text-zinc-900 transition-all duration-200 group-hover:translate-x-0.5">{r.name}</div>
+                  <div className="text-[10px] text-zinc-400 uppercase tracking-wider mt-0.5">{r.type}</div>
+                </td>
+                <td className="px-6 py-3.5 text-xs text-zinc-500 transition-all duration-200 group-hover:text-zinc-700">{r.location}</td>
+                <td className="px-6 py-3.5 text-xs text-zinc-500 transition-all duration-200 group-hover:text-zinc-700">{r.capacity || <span className="text-zinc-300">—</span>}</td>
+                <td className="px-6 py-3.5">
+                  <div className="transition-transform duration-200 group-hover:scale-105 inline-block">
+                    <StatusBadge status={r.status} />
+                  </div>
+                </td>
+                <td className="px-6 py-3.5 text-right">
+                  <button
+                    onClick={() => setBookingDialog({ open: true, resource: r })}
+                    disabled={r.status !== 'ACTIVE'}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 ${r.status === 'ACTIVE' ? 'bg-zinc-900 text-white hover:bg-zinc-700 hover:scale-105 hover:shadow-lg active:scale-95' : 'bg-zinc-100 text-zinc-400 cursor-not-allowed'}`}
+                    style={r.status === 'ACTIVE' ? { boxShadow: '0 1px 3px rgba(0,0,0,0.25)' } : {}}
+                  >
+                    Book Now
+                  </button>
                 </td>
               </tr>
             ))}
+            {filteredResources.length === 0 && (
+              <tr><td colSpan="5" className="px-6 py-12 text-center text-xs text-zinc-400">No resources found</td></tr>
+            )}
           </tbody>
         </table>
       </div>
@@ -454,6 +531,7 @@ export default function UserDashboard() {
       </AnimatePresence>
     </div>
   );
+  };
 
   // ---------- My Bookings View ----------
   const renderMyBookings = () => (
