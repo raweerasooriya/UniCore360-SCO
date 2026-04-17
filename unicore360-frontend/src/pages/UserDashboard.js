@@ -102,6 +102,7 @@ export default function UserDashboard() {
   const navigate = useNavigate();
   const notificationPanelRef = useRef(null);
   const [successMessage, setSuccessMessage] = useState(null);
+  const [resourceFilters, setResourceFilters] = useState({ name: '', type: '', location: '', status: '' });
 
   // Ticket related state
   const [myTickets, setMyTickets] = useState([]);
