@@ -634,15 +634,11 @@ export default function UserDashboard() {
           </h2>
         </div>
         <div className="p-8">
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} noValidate className="space-y-6">
             <div>
               <label className="block text-xs font-black mb-1">Title *</label>
               <input
                 type="text"
-                required
-                minLength={4}
-                pattern="[A-Za-z]{4,}"
-                title="Title must contain at least 4 letters and no spaces."
                 value={reportForm.title}
                 onChange={e => {
                   setReportForm({ ...reportForm, title: e.target.value });
@@ -658,7 +654,6 @@ export default function UserDashboard() {
               <div>
                 <label className="block text-xs font-black mb-1">Category *</label>
                 <select
-                  required
                   value={reportForm.category}
                   onChange={e => {
                     setReportForm({ ...reportForm, category: e.target.value });
@@ -684,7 +679,6 @@ export default function UserDashboard() {
               <label className="block text-xs font-black mb-1">Location *</label>
               <input
                 type="text"
-                required
                 value={reportForm.location}
                 onChange={e => {
                   setReportForm({ ...reportForm, location: e.target.value });
@@ -700,7 +694,6 @@ export default function UserDashboard() {
               <label className="block text-xs font-black mb-1">Description *</label>
               <textarea
                 rows={3}
-                required
                 value={reportForm.description}
                 onChange={e => {
                   setReportForm({ ...reportForm, description: e.target.value });
@@ -716,7 +709,6 @@ export default function UserDashboard() {
               <label className="block text-xs font-black mb-1">Contact Email *</label>
               <input
                 type="email"
-                required
                 value={reportForm.contactEmail}
                 onChange={e => {
                   setReportForm({ ...reportForm, contactEmail: e.target.value });
@@ -736,10 +728,13 @@ export default function UserDashboard() {
                 accept="image/*"
                 onChange={e => {
                   const selectedFiles = Array.from(e.target.files);
-                  setReportImages(selectedFiles.slice(0, 3));
-                  if (reportErrors.images) {
-                    setReportErrors(prev => ({ ...prev, images: '' }));
+                  if (selectedFiles.length > 3) {
+                    setReportErrors(prev => ({ ...prev, images: 'You can upload a maximum of 3 images.' }));
+                    setReportImages(selectedFiles.slice(0, 3));
+                    return;
                   }
+                  setReportImages(selectedFiles);
+                  if (reportErrors.images) setReportErrors(prev => ({ ...prev, images: '' }));
                 }}
                 className="w-full"
               />
