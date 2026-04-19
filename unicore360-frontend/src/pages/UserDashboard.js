@@ -587,8 +587,8 @@ export default function UserDashboard() {
         validationErrors.description = 'Description must be at least 10 characters.';
       }
 
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedContactEmail)) {
-        validationErrors.contactEmail = 'Please enter a valid email address.';
+      if (!/^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(normalizedContactEmail)) {
+        validationErrors.contactEmail = 'Enter a valid email like name@gmail.com.';
       }
 
       if (reportImages.length > 3) {
@@ -709,11 +709,22 @@ export default function UserDashboard() {
               <label className="block text-xs font-black mb-1">Contact Email *</label>
               <input
                 type="email"
+                placeholder="name@gmail.com"
                 value={reportForm.contactEmail}
                 onChange={e => {
                   setReportForm({ ...reportForm, contactEmail: e.target.value });
                   if (reportErrors.contactEmail) {
                     setReportErrors(prev => ({ ...prev, contactEmail: '' }));
+                  }
+                }}
+                onBlur={e => {
+                  const emailValue = e.target.value.trim();
+                  if (!emailValue) {
+                    setReportErrors(prev => ({ ...prev, contactEmail: 'Contact email is required.' }));
+                    return;
+                  }
+                  if (!/^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(emailValue)) {
+                    setReportErrors(prev => ({ ...prev, contactEmail: 'Enter a valid email like name@gmail.com.' }));
                   }
                 }}
                 className={`w-full p-3 bg-zinc-50 border rounded-xl ${reportErrors.contactEmail ? 'border-red-500' : ''}`}
